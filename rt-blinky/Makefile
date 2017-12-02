@@ -221,3 +221,9 @@ ULIBS =
 
 RULESPATH = $(CHIBIOS)/os/common/startup/ARMCMx/compilers/GCC
 include $(RULESPATH)/rules.mk
+
+
+flash:
+	st-flash --format ihex write build/$(PROJECT).hex
+
+.PHONY: flash

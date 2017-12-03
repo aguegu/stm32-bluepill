@@ -221,4 +221,8 @@ include $(RULESPATH)/rules.mk
 flash:
 	st-flash --format ihex write build/$(PROJECT).hex
 
+install:
+	$(MAKE) all
+	$(MAKE) flash
+
 .PHONY: flash

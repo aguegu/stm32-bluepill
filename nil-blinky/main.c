@@ -17,15 +17,13 @@
 #include "hal.h"
 #include "ch.h"
 
-THD_WORKING_AREA(waThread1, 128);
+THD_WORKING_AREA(waThread1, 32);
 THD_FUNCTION(Thread1, arg) {
-
   (void)arg;
+  palSetPadMode(GPIOC, GPIOC_LED, PAL_MODE_OUTPUT_OPENDRAIN);
 
   while (true) {
-    palSetPad(GPIOC, GPIOC_LED);
-    chThdSleepMilliseconds(250);
-    palClearPad(GPIOC, GPIOC_LED);
+    palTogglePad(GPIOC, GPIOC_LED);
     chThdSleepMilliseconds(250);
   }
 }

@@ -16,6 +16,7 @@
 
 #include "hal.h"
 #include "ch.h"
+#include "chprintf.h"
 
 THD_WORKING_AREA(waThread1, 32);
 THD_FUNCTION(Thread1, arg) {
@@ -31,15 +32,16 @@ THD_FUNCTION(Thread1, arg) {
 THD_WORKING_AREA(waThread2, 128);
 THD_FUNCTION(Thread2, arg) {
   (void)arg;
-  uint8_t buff, len;
+  uint8_t buff;
+  BaseSequentialStream* chp = (BaseSequentialStream*) &SD1;
   sdStart(&SD1, NULL);
   palSetPadMode(GPIOA, 9, PAL_MODE_STM32_ALTERNATE_OPENDRAIN);       /* USART1 TX.       */
   palSetPadMode(GPIOA, 10, PAL_MODE_INPUT);      /* USART1 RX.       */
 
   while (true) {
-    len = sdReadTimeout(&SD1, &buff, 1, 2000);
+    uint8_t len = sdReadTimeout(&SD1, &buff, 1, 2000);
     if (len) {
-      chnWrite(&SD1, &buff, 1);
+      chprintf(chp, "%02x\r\n", buff);
     } else {
       chnWrite(&SD1, (const uint8_t *)"Hello World!\r\n", 14);
     }

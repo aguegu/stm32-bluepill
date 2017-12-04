@@ -23,7 +23,7 @@
  * @addtogroup NIL_CONFIG
  * @details Kernel related settings and hooks.
  * @{
- */chprintf(chp, "Hello world\n\r");
+ */
 
 #ifndef CHCONF_H
 #define CHCONF_H

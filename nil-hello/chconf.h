@@ -23,7 +23,7 @@
  * @addtogroup NIL_CONFIG
  * @details Kernel related settings and hooks.
  * @{
- */
+ */chprintf(chp, "Hello world\n\r");
 
 #ifndef CHCONF_H
 #define CHCONF_H
@@ -42,7 +42,7 @@
  * @note    This number is not inclusive of the idle thread which is
  *          Implicitly handled.
  */
-#define CH_CFG_NUM_THREADS                  1
+#define CH_CFG_NUM_THREADS                  2
 
 /** @} */
 
@@ -183,28 +183,28 @@
  *
  * @note    The default is @p FALSE.
  */
-#define CH_DBG_SYSTEM_STATE_CHECK           FALSE
+#define CH_DBG_SYSTEM_STATE_CHECK           TRUE
 
 /**
  * @brief   Debug option, parameters checks.
  *
  * @note    The default is @p FALSE.
  */
-#define CH_DBG_ENABLE_CHECKS                FALSE
+#define CH_DBG_ENABLE_CHECKS                TRUE
 
 /**
  * @brief   System assertions.
  *
  * @note    The default is @p FALSE.
  */
-#define CH_DBG_ENABLE_ASSERTS               FALSE
+#define CH_DBG_ENABLE_ASSERTS               TRUE
 
 /**
  * @brief   Stack check.
  *
  * @note    The default is @p FALSE.
  */
-#define CH_DBG_ENABLE_STACK_CHECK           FALSE
+#define CH_DBG_ENABLE_STACK_CHECK           TRUE
 
 /** @} */
 

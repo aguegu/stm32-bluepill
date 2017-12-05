@@ -20,7 +20,7 @@
 THD_WORKING_AREA(waThread1, 32);
 THD_FUNCTION(Thread1, arg) {
   (void)arg;
-  palSetPadMode(GPIOC, GPIOC_LED, PAL_MODE_OUTPUT_OPENDRAIN);
+  palSetPadMode(GPIOC, GPIOC_LED, PAL_MODE_OUTPUT_OPENDRAIN); // only 50MHz in GPIOv1
 
   while (true) {
     palTogglePad(GPIOC, GPIOC_LED);

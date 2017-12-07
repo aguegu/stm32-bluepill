@@ -17,6 +17,8 @@
 #include "hal.h"
 #include "ch.h"
 #include "chprintf.h"
+#include "nil_test_root.h"
+#include "oslib_test_root.h"
 
 THD_WORKING_AREA(waThread1, 32);
 THD_FUNCTION(Thread1, arg) {
@@ -32,25 +34,34 @@ THD_FUNCTION(Thread1, arg) {
 THD_WORKING_AREA(waThread2, 128);
 THD_FUNCTION(Thread2, arg) {
   (void)arg;
-  uint8_t buff;
-  BaseSequentialStream* chp = (BaseSequentialStream*) &SD1;
+  /*
+   * Activates the serial driver 1 using the driver default configuration.
+   * PA9 and PA10 are routed to USART1.
+   */
   sdStart(&SD1, NULL);
-  palSetPadMode(GPIOA, 9, PAL_MODE_STM32_ALTERNATE_OPENDRAIN);       /* USART1 TX.       */
-  palSetPadMode(GPIOA, 10, PAL_MODE_INPUT);      /* USART1 RX.       */
+  palSetPadMode(GPIOA, 9, PAL_MODE_STM32_ALTERNATE_OPENDRAIN);       /* USART1 TX. */
+  palSetPadMode(GPIOA, 10, PAL_MODE_INPUT);                          /* USART1 RX. */
+
+  /* Welcome message.*/
+  chnWrite(&SD1, (const uint8_t *)"Hello World!\r\n", 14);
+
+  /* Waiting for button push and activation of the test suite.*/
+  palSetPadMode(GPIOB, 5, PAL_MODE_INPUT_PULLUP);
 
   while (true) {
-    uint8_t len = sdReadTimeout(&SD1, &buff, 1, 2000);
-    if (len) {
-      chprintf(chp, "%02x\r\n", buff);
-    } else {
-      chnWrite(&SD1, (const uint8_t *)"Hello World!\r\n", 14);
+    if (palReadPad(GPIOB, 5) == 0) {
+      test_execute((BaseSequentialStream *)&SD1, &nil_test_suite);
+      test_execute((BaseSequentialStream *)&SD1, &oslib_test_suite);
     }
+    chThdSleepMilliseconds(500);
   }
 }
 
+
 THD_TABLE_BEGIN
   THD_TABLE_ENTRY(waThread1, "blinker1", Thread1, NULL)
-  THD_TABLE_ENTRY(waThread2, "hello", Thread2, NULL)
+  THD_TABLE_ENTRY(wa_test_support, "test_support", test_support, (void *)&nil.threads[2])
+  THD_TABLE_ENTRY(waThread2, "tester", Thread2, NULL)
 THD_TABLE_END
 
 
@@ -58,7 +69,7 @@ int main(void) {
   halInit();
   chSysInit();
 
-  while(1) {
-  }
+  while(true);
+
   return 0;
 }

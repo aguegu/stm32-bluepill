@@ -14,9 +14,11 @@
     limitations under the License.
 */
 
-#include "hal.h"
 #include "ch.h"
-#include "ch_test.h"
+#include "hal.h"
+#include "rt_test_root.h"
+#include "oslib_test_root.h"
+
 /*
  * Blinker thread #1.
  */
@@ -46,7 +48,8 @@ int main(void) {
 
     while (true) {
       if (palReadPad(GPIOB, 5) == 0) {
-        test_execute((BaseSequentialStream *)&SD1);
+        test_execute((BaseSequentialStream *)&SD1, &rt_test_suite);
+        test_execute((BaseSequentialStream *)&SD1, &oslib_test_suite);
       }
       chThdSleepMilliseconds(500);
     }

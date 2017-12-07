@@ -16,7 +16,6 @@
 
 #include "hal.h"
 #include "ch.h"
-#include "ch_test.h"
 #include "chprintf.h"
 #include "ds3231.h"
 /*
@@ -56,14 +55,9 @@ int main(void) {
     palSetPadMode(GPIOA, 9, PAL_MODE_STM32_ALTERNATE_OPENDRAIN);  // USART TX
     palSetPadMode(GPIOA, 10, PAL_MODE_INPUT);                     // USART RX
 
-    palSetPadMode(GPIOB, 5, PAL_MODE_INPUT_PULLUP);
-
     ds3231_init(&I2CD1);
 
     while (true) {
-      if (palReadPad(GPIOB, 5) == 0) {
-        test_execute((BaseSequentialStream *)&SD1);
-      }
       ds3231_refresh(&I2CD1);
       uint8_t second = ds3231_getHexData(0);
       uint8_t minute = ds3231_getHexData(1);

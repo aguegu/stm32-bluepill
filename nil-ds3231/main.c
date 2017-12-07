@@ -39,32 +39,26 @@ static const I2CConfig i2cfg1 = {
 THD_WORKING_AREA(waThread2, 128);
 THD_FUNCTION(Thread2, arg) {
   (void)arg;
-  /*
-   * Activates the serial driver 1 using the driver default configuration.
-   * PA9 and PA10 are routed to USART1.
-   */
+
   sdStart(&SD1, NULL);
   palSetPadMode(GPIOA, 9, PAL_MODE_STM32_ALTERNATE_OPENDRAIN);  // USART TX
   palSetPadMode(GPIOA, 10, PAL_MODE_INPUT);                     // USART RX
 
-  /* Welcome message.*/
   chnWrite(&SD1, (const uint8_t *)"Hello World!\r\n", 14);
 
   i2cStart(&I2CD1, &i2cfg1);
   palSetPadMode(GPIOB, 6, PAL_MODE_STM32_ALTERNATE_OPENDRAIN);  // I2C SCL
   palSetPadMode(GPIOB, 7, PAL_MODE_STM32_ALTERNATE_OPENDRAIN);  // I2C SDA
 
-  ds3231_init(&I2CD1);
+  Ds3231 tm = {&I2CD1, 0x68, {0}};
+  ds3231_init(&tm);
 
   while (true) {
-    ds3231_refresh(&I2CD1);
-    uint8_t second = ds3231_getHexData(0);
-    uint8_t minute = ds3231_getHexData(1);
-    chprintf((BaseSequentialStream *)&SD1, "%02x:%02x\r\n", minute, second);
-    chThdSleepMilliseconds(500);
+    ds3231_refresh(&tm);
+    chprintf((BaseSequentialStream *)&SD1, "%02x:%02x:%02x\r\n", tm.data[2], tm.data[1], tm.data[0]);
+    chThdSleepSeconds(1);
   }
 }
-
 
 THD_TABLE_BEGIN
   THD_TABLE_ENTRY(waThread1, "blinker1", Thread1, NULL)

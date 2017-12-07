@@ -43,7 +43,9 @@ THD_FUNCTION(Thread2, arg) {
     if (len) {
       chprintf(chp, "%02x\r\n", buff);
     } else {
-      chnWrite(&SD1, (const uint8_t *)"Hello World!\r\n", 14);
+      chnWrite(&SD1, (const uint8_t *)"Hello World, ", 13);
+      chprintf(chp, "%02u\r\n", chVTGetSystemTimeX());
+
     }
   }
 }

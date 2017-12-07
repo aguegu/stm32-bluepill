@@ -3,3 +3,5 @@ build/
 .project
 .cproject
 .settings/
+ChibiOS
+gcc-arm-none-eabi

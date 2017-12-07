@@ -11,8 +11,9 @@ dependences:
 
 howto:
 
-1. configure env.sh to set the right path for toolchain and ChibiOS
-2. `source env.sh`
+0. clone the repo and `cd` in
+1. `ln -s /path/to/ChiboOS ChibiOS` to create a symbol link to ChibiOS root
+2. `ln -s /path/to/gcc-arm-none-eabi-X-Y gcc-arm-none-eabi` to create a symbol link to toolchain
 3. `cd demo_folder`
 4. `make` to build
 5. `make flash` to write chips with st-flash

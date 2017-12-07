@@ -55,10 +55,10 @@ THD_TABLE_END
 
 
 int main(void) {
-    halInit();
-    chSysInit();
+  halInit();
+  chSysInit();
 
-    while(1) {
-    }
-    return 0;
+  while(1) {
+  }
+  return 0;
 }

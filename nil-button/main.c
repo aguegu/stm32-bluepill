@@ -16,8 +16,9 @@
 
 #include "hal.h"
 #include "ch.h"
-#include "ch_test.h"
 #include "chprintf.h"
+#include "nil_test_root.h"
+#include "oslib_test_root.h"
 
 THD_WORKING_AREA(waThread1, 32);
 THD_FUNCTION(Thread1, arg) {
@@ -49,7 +50,8 @@ THD_FUNCTION(Thread2, arg) {
 
   while (true) {
     if (palReadPad(GPIOB, 5) == 0) {
-      test_execute((BaseSequentialStream *)&SD1);
+      test_execute((BaseSequentialStream *)&SD1, &nil_test_suite);
+      test_execute((BaseSequentialStream *)&SD1, &oslib_test_suite);
     }
     chThdSleepMilliseconds(500);
   }

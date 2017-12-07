@@ -4,9 +4,18 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-  void ds3231_init(I2CDriver *);
-  void ds3231_refresh(I2CDriver *);
-  uint8_t ds3231_getHexData(uint8_t index);
+
+  typedef struct {
+    I2CDriver   *i2cp;
+    uint8_t     address;
+    uint8_t     data[7];
+  } Ds3231;
+
+  void ds3231_init(Ds3231 *);
+  void ds3231_refresh(Ds3231 *);
+  // uint8_t ds3231_getHexData(uint8_t index);
+
+
 #ifdef __cplusplus
 }
 #endif

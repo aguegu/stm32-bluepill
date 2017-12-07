@@ -29,6 +29,7 @@
 #define CHCONF_H
 
 #define _CHIBIOS_NIL_CONF_
+#define _CHIBIOS_NIL_CONF_VER_3_0_
 
 /*===========================================================================*/
 /**
@@ -66,6 +67,18 @@
  *          timeouts.
  */
 #define CH_CFG_ST_FREQUENCY                 1000
+
+/**
+ * @brief   Time intervals data size.
+ * @note    Allowed values are 16, 32 or 64 bits.
+ */
+#define CH_CFG_INTERVALS_SIZE               32
+
+/**
+ * @brief   Time types data size.
+ * @note    Allowed values are 16 or 32 bits.
+ */
+#define CH_CFG_TIME_TYPES_SIZE              32
 
 /**
  * @brief   Time delta constant for the tick-less mode.
@@ -177,7 +190,7 @@
  *
  * @note    The default is @p FALSE.
  */
-#define CH_CFG_USE_FACTORY                  FALSE
+#define CH_CFG_USE_FACTORY                  TRUE
 
 /**
  * @brief   Maximum length for object names.

@@ -49,12 +49,12 @@ int main(void) {
     chThdCreateStatic(waThread1, sizeof(waThread1), NORMALPRIO+1, Thread1, NULL);
 
     i2cStart(&I2CD1, &i2cfg1);
-    palSetPadMode(GPIOB, 6, PAL_MODE_STM32_ALTERNATE_OPENDRAIN);       /* USART1 TX.       */
-    palSetPadMode(GPIOB, 7, PAL_MODE_STM32_ALTERNATE_OPENDRAIN);      /* USART1 RX.       */
+    palSetPadMode(GPIOB, 6, PAL_MODE_STM32_ALTERNATE_OPENDRAIN);  // I2C SCL
+    palSetPadMode(GPIOB, 7, PAL_MODE_STM32_ALTERNATE_OPENDRAIN);  // I2C SDA
 
     sdStart(&SD1, NULL);
-    palSetPadMode(GPIOA, 9, PAL_MODE_STM32_ALTERNATE_OPENDRAIN);       /* USART1 TX.       */
-    palSetPadMode(GPIOA, 10, PAL_MODE_INPUT);      /* USART1 RX.       */
+    palSetPadMode(GPIOA, 9, PAL_MODE_STM32_ALTERNATE_OPENDRAIN);  // USART TX
+    palSetPadMode(GPIOA, 10, PAL_MODE_INPUT);                     // USART RX
 
     palSetPadMode(GPIOB, 5, PAL_MODE_INPUT_PULLUP);
 

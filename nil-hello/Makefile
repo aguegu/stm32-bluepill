@@ -86,7 +86,7 @@ endif
 PROJECT = ch
 
 # Imported source files and paths
-CHIBIOS = $(ChibiOS)
+CHIBIOS = ../ChibiOS
 # Startup files.
 include $(CHIBIOS)/os/common/startup/ARMCMx/compilers/GCC/mk/startup_stm32f1xx.mk
 # HAL-OSAL files (optional).
@@ -163,7 +163,7 @@ INCDIR = $(CHIBIOS)/os/license \
 MCU  = cortex-m3
 
 #TRGT = arm-elf-
-TRGT = arm-none-eabi-
+TRGT = ../gcc-arm-none-eabi/bin/arm-none-eabi-
 CC   = $(TRGT)gcc
 CPPC = $(TRGT)g++
 # Enable loading with g++ only if you need C++ runtime support.

@@ -100,6 +100,10 @@ include $(CHIBIOS)/os/common/ports/ARMCMx/compilers/GCC/mk/port_v7m.mk
 # Other files (optional).
 # include $(CHIBIOS)/test/nil/test.mk
 
+UTILS = ../utils
+
+include $(UTILS)/nil/utils.mk
+
 # Define linker script file here
 LDSCRIPT= $(STARTUPLD)/STM32F103x8.ld
 
@@ -113,9 +117,9 @@ CSRC = $(STARTUPSRC) \
        $(PLATFORMSRC) \
        $(BOARDSRC) \
        $(TESTSRC) \
+			 $(UTILSRC) \
 			 $(CHIBIOS)/os/hal/lib/streams/memstreams.c \
 			 $(CHIBIOS)/os/hal/lib/streams/chprintf.c \
-			 ds3231.c \
        main.c
 
 
@@ -149,7 +153,7 @@ ASMXSRC = $(STARTUPASM) $(PORTASM) $(OSALASM)
 
 INCDIR = $(CHIBIOS)/os/license \
          $(STARTUPINC) $(KERNINC) $(PORTINC) $(OSALINC) \
-         $(HALINC) $(PLATFORMINC) $(BOARDINC) $(TESTINC) \
+         $(HALINC) $(PLATFORMINC) $(BOARDINC) $(TESTINC) $(UTILINC) \
 				 $(CHIBIOS)/os/hal/lib/streams \
          $(CHIBIOS)/os/various
 

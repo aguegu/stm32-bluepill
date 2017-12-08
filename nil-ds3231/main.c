@@ -52,6 +52,8 @@ THD_FUNCTION(Thread2, arg) {
 
   Ds3231 tm = {&I2CD1, 0x68, {0}};
   ds3231_init(&tm);
+  uint8_t now[3] = {0x56, 0x34, 0x12}; // second, minute, hour
+  ds3231_setTime(&tm, now, 3);
 
   while (true) {
     ds3231_refresh(&tm);

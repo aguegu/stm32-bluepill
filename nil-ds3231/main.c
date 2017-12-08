@@ -50,6 +50,7 @@ THD_FUNCTION(Thread2, arg) {
   palSetPadMode(GPIOB, 6, PAL_MODE_STM32_ALTERNATE_OPENDRAIN);  // I2C SCL
   palSetPadMode(GPIOB, 7, PAL_MODE_STM32_ALTERNATE_OPENDRAIN);  // I2C SDA
 
+  i2c_init();
   Ds3231 tm = {&I2CD1, 0x68, {0}};
   ds3231_init(&tm);
   uint8_t now[3] = {0x56, 0x34, 0x12}; // second, minute, hour

@@ -5,7 +5,6 @@
 
 
 void ds3231_init(Ds3231 *self) {
-  i2c_init();
   i2cAcquireBus(self->i2cp);
   i2c_writeSingleReg(self->i2cp, self->address, 0x0e, 0x9c);
   i2c_writeSingleReg(self->i2cp, self->address, 0x0f, 0x00);

@@ -17,7 +17,7 @@
 #include "hal.h"
 #include "ch.h"
 #include "chprintf.h"
-#include "ds3231.h"
+#include "pca9685.h"
 
 THD_WORKING_AREA(waThread1, 32);
 THD_FUNCTION(Thread1, arg) {
@@ -51,21 +51,19 @@ THD_FUNCTION(Thread2, arg) {
   palSetPadMode(GPIOB, 7, PAL_MODE_STM32_ALTERNATE_OPENDRAIN);  // I2C SDA
 
   i2c_init();
-  Ds3231 tm = {&I2CD1, 0x68, {0}};
-  ds3231_init(&tm);
-  uint8_t now[3] = {0x56, 0x34, 0x12}; // second, minute, hour
-  ds3231_setTime(&tm, now, 3);
+  Pca9685 sc = {&I2CD1, 0x40};
+  pca9685_init(&sc);
+  pca9685_middle(&sc);
 
   while (true) {
-    ds3231_refresh(&tm);
-    chprintf((BaseSequentialStream *)&SD1, "%02x:%02x:%02x\r\n", tm.data[2], tm.data[1], tm.data[0]);
+    chprintf((BaseSequentialStream *)&SD1, "%u\r\n", chVTGetSystemTimeX());
     chThdSleepSeconds(1);
   }
 }
 
 THD_TABLE_BEGIN
   THD_TABLE_ENTRY(waThread1, "blinker1", Thread1, NULL)
-  THD_TABLE_ENTRY(waThread2, "ds3231", Thread2, NULL)
+  THD_TABLE_ENTRY(waThread2, "pca9685", Thread2, NULL)
 THD_TABLE_END
 
 

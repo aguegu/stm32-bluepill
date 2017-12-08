@@ -4,7 +4,7 @@
 #include <string.h>
 #include "i2c.h"
 
-#define HEAP_SIZE (32)
+#define HEAP_SIZE (64)
 
 static memory_heap_t _heap;
 static CH_HEAP_AREA(ic2heap, HEAP_SIZE);

@@ -40,6 +40,8 @@ THD_WORKING_AREA(waThread2, 128);
 THD_FUNCTION(Thread2, arg) {
   (void)arg;
 
+  uint8_t buff[4];
+
   sdStart(&SD1, NULL);
   palSetPadMode(GPIOA, 9, PAL_MODE_STM32_ALTERNATE_OPENDRAIN);  // USART TX
   palSetPadMode(GPIOA, 10, PAL_MODE_INPUT);                     // USART RX
@@ -56,8 +58,15 @@ THD_FUNCTION(Thread2, arg) {
   pca9685_middle(&sc);
 
   while (true) {
-    chprintf((BaseSequentialStream *)&SD1, "%u\r\n", chVTGetSystemTimeX());
-    chThdSleepSeconds(1);
+    uint8_t len = sdReadTimeout(&SD1, buff, 4, 10);
+    uint16_t width = 0;
+    if (len == 4 && buff[0] == 0x04) {
+      width = buff[2] + (buff[3] << 8);
+      pca9685_setWidth(&sc, buff[1] & 0x0f, width);
+      chprintf((BaseSequentialStream *)&SD1, "%u: servo #%d: %u\r\n", chVTGetSystemTimeX(), buff[1], width);
+    }
+
+    // chThdSleepSeconds(1);
   }
 }
 

@@ -24,7 +24,7 @@ void pca9685_middle(Pca9685 *self) {
   i2cReleaseBus(self->i2cp);
 }
 
-void pca9685_setAngel(Pca9685 *self, uint8_t index, uint16_t width) {
+void pca9685_setWidth(Pca9685 *self, uint8_t index, uint16_t width) {
   buff[0] = width & 0xff;
   buff[1] = (width >> 8) & 0x0f;
   i2c_writeMultipleReg(self->i2cp, self->address, 8 + 4 * index, buff, 2);

@@ -5,3 +5,4 @@ build/
 .settings/
 ChibiOS
 gcc-arm-none-eabi
+chibios-i2c-slave

@@ -4,7 +4,7 @@
 #include "ds3231.h"
 
 msg_t status = MSG_OK;
-systime_t tmo = TIME_MS2I(4);
+systime_t tmo = MS2ST(4);
 uint8_t data[7];
 
 void ds3231_init(I2CDriver *i2cp) {

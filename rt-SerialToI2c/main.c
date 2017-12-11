@@ -16,11 +16,12 @@
 
 #include "hal.h"
 #include "ch.h"
+// #include "chprintf.h"
 
-static THD_WORKING_AREA(waThread1, 128);
-static THD_FUNCTION(Thread1, arg) {
+static THD_WORKING_AREA(waBlink, 128);
+static THD_FUNCTION(Blink, arg) {
   (void)arg;
-  chRegSetThreadName("blinker");
+  chRegSetThreadName("blink");
 
   palSetPadMode(GPIOC, GPIOC_LED, PAL_MODE_OUTPUT_OPENDRAIN);
   while (true) {
@@ -29,13 +30,39 @@ static THD_FUNCTION(Thread1, arg) {
   }
 }
 
+static THD_WORKING_AREA(waEcho, 128);
+static THD_FUNCTION(Echo, arg) {
+  (void)arg;
+  uint8_t buff;
+  chRegSetThreadName("echo");
+  // BaseSequentialStream* chp = (BaseSequentialStream*) &SD1;
+  sdStart(&SD1, NULL);
+  palSetPadMode(GPIOA, 9, PAL_MODE_STM32_ALTERNATE_OPENDRAIN);       // USART1 TX
+  palSetPadMode(GPIOA, 10, PAL_MODE_INPUT);                          // USART1 RX
+
+  while (true) {
+    sdRead(&SD1, &buff, 1);
+    sdWrite(&SD1, &buff, 1);
+    // uint8_t len = sdReadTimeout(&SD1, &buff, 1, 500);
+    // if (len) {
+    //   chprintf(chp, "%02x\r\n", buff);
+    // } else {
+    //   chnWrite(&SD1, (const uint8_t *)"Hello World, ", 13);
+    //   chprintf(chp, "%u\r\n", chVTGetSystemTimeX());
+    // }
+  }
+}
+
+
 int main(void) {
     halInit();
     chSysInit();
 
-    chThdCreateStatic(waThread1, sizeof(waThread1), NORMALPRIO + 1, Thread1, NULL);
+    chThdCreateStatic(waBlink, sizeof(waBlink), (NORMALPRIO + 2), Blink, NULL);
+    chThdCreateStatic(waEcho, sizeof(waEcho), (NORMALPRIO - 1), Echo, NULL);
 
     while (true) {
+      chThdSleepSeconds(1);
     }
     return 0;
 }

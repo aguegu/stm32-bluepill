@@ -8,7 +8,7 @@ systime_t tmo = MS2ST(4);
 uint8_t data[7];
 
 void ds3231_init(I2CDriver *i2cp) {
-  uint8_t s[4] = {0x0e, 0x9c, 0x0f, 0x00};
+  uint8_t s[4] = {0x0e, 0x80, 0x0f, 0x00};
   i2cAcquireBus(i2cp);
   status = i2cMasterTransmitTimeout(i2cp, 0x68,
                           s, 2, NULL, 0, tmo);

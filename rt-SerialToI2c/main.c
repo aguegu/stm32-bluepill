@@ -5,12 +5,10 @@
 // #define BUFF_SIZE 1
 
 // static uint8_t buffs[MB_SIZE][BUFF_SIZE];
-
 static msg_t mb_buffer[MB_SIZE];
 static MAILBOX_DECL(mb, mb_buffer, MB_SIZE);
 
-
-static THD_WORKING_AREA(waBlink, 128);
+static THD_WORKING_AREA(waBlink, 0);
 static THD_FUNCTION(Blink, arg) {
   (void)arg;
   chRegSetThreadName("blink");
@@ -22,7 +20,7 @@ static THD_FUNCTION(Blink, arg) {
   }
 }
 
-static THD_WORKING_AREA(waPing, 128);
+static THD_WORKING_AREA(waPing, 32);
 static THD_FUNCTION(Ping, arg) {
   (void)arg;
 
@@ -35,7 +33,7 @@ static THD_FUNCTION(Ping, arg) {
   }
 }
 
-static THD_WORKING_AREA(waPong, 128);
+static THD_WORKING_AREA(waPong, 32);
 static THD_FUNCTION(Pong, arg) {
   (void)arg;
   msg_t msg;

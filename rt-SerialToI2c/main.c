@@ -57,8 +57,8 @@ int main(void) {
     palSetPadMode(GPIOA, 10, PAL_MODE_INPUT);                          // USART1 RX
 
     chThdCreateStatic(waBlink, sizeof(waBlink), (NORMALPRIO + 1), Blink, NULL);
-    chThdCreateStatic(waPing, sizeof(waPing), (NORMALPRIO - 1), Ping, NULL);
-    chThdCreateStatic(waPong, sizeof(waPong), (NORMALPRIO - 1), Pong, NULL);
+    chThdCreateStatic(waPing, sizeof(waPing), (NORMALPRIO), Ping, NULL);
+    chThdCreateStatic(waPong, sizeof(waPong), (NORMALPRIO), Pong, NULL);
 
     while (true) {
       chThdSleepSeconds(1);

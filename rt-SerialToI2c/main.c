@@ -1,22 +1,14 @@
-/*
-    ChibiOS - Copyright (C) 2006..2016 Giovanni Di Sirio
-
-    Licensed under the Apache License, Version 2.0 (the "License");
-    you may not use this file except in compliance with the License.
-    You may obtain a copy of the License at
-
-        http://www.apache.org/licenses/LICENSE-2.0
-
-    Unless required by applicable law or agreed to in writing, software
-    distributed under the License is distributed on an "AS IS" BASIS,
-    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-    See the License for the specific language governing permissions and
-    limitations under the License.
-*/
-
 #include "hal.h"
 #include "ch.h"
-// #include "chprintf.h"
+
+#define MB_SIZE 4
+// #define BUFF_SIZE 1
+
+// static uint8_t buffs[MB_SIZE][BUFF_SIZE];
+
+static msg_t mb_buffer[MB_SIZE];
+static MAILBOX_DECL(mb, mb_buffer, MB_SIZE);
+
 
 static THD_WORKING_AREA(waBlink, 128);
 static THD_FUNCTION(Blink, arg) {
@@ -30,36 +22,45 @@ static THD_FUNCTION(Blink, arg) {
   }
 }
 
-static THD_WORKING_AREA(waEcho, 128);
-static THD_FUNCTION(Echo, arg) {
+static THD_WORKING_AREA(waPing, 128);
+static THD_FUNCTION(Ping, arg) {
   (void)arg;
+
+  chRegSetThreadName("ping");
   uint8_t buff;
-  chRegSetThreadName("echo");
-  // BaseSequentialStream* chp = (BaseSequentialStream*) &SD1;
-  sdStart(&SD1, NULL);
-  palSetPadMode(GPIOA, 9, PAL_MODE_STM32_ALTERNATE_OPENDRAIN);       // USART1 TX
-  palSetPadMode(GPIOA, 10, PAL_MODE_INPUT);                          // USART1 RX
 
   while (true) {
     sdRead(&SD1, &buff, 1);
-    sdWrite(&SD1, &buff, 1);
-    // uint8_t len = sdReadTimeout(&SD1, &buff, 1, 500);
-    // if (len) {
-    //   chprintf(chp, "%02x\r\n", buff);
-    // } else {
-    //   chnWrite(&SD1, (const uint8_t *)"Hello World, ", 13);
-    //   chprintf(chp, "%u\r\n", chVTGetSystemTimeX());
-    // }
+    chMBPost(&mb, (msg_t)buff, TIME_INFINITE);
   }
 }
 
+static THD_WORKING_AREA(waPong, 128);
+static THD_FUNCTION(Pong, arg) {
+  (void)arg;
+  msg_t msg;
+  chRegSetThreadName("pong");
+
+  while (true) {
+    chMBFetch(&mb, &msg, TIME_INFINITE);
+    uint8_t buff = (uint8_t)msg;
+    sdWrite(&SD1, &buff, 1);
+  }
+}
 
 int main(void) {
     halInit();
     chSysInit();
 
-    chThdCreateStatic(waBlink, sizeof(waBlink), (NORMALPRIO + 2), Blink, NULL);
-    chThdCreateStatic(waEcho, sizeof(waEcho), (NORMALPRIO - 1), Echo, NULL);
+    chMBObjectInit(&mb, mb_buffer, MB_SIZE);
+
+    sdStart(&SD1, NULL);
+    palSetPadMode(GPIOA, 9, PAL_MODE_STM32_ALTERNATE_OPENDRAIN);       // USART1 TX
+    palSetPadMode(GPIOA, 10, PAL_MODE_INPUT);                          // USART1 RX
+
+    chThdCreateStatic(waBlink, sizeof(waBlink), (NORMALPRIO + 1), Blink, NULL);
+    chThdCreateStatic(waPing, sizeof(waPing), (NORMALPRIO - 1), Ping, NULL);
+    chThdCreateStatic(waPong, sizeof(waPong), (NORMALPRIO - 1), Pong, NULL);
 
     while (true) {
       chThdSleepSeconds(1);

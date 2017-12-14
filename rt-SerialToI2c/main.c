@@ -14,6 +14,7 @@ static msg_t mbduty_buffer[MB_SIZE];
 static MAILBOX_DECL(mbduty, mbduty_buffer, MB_SIZE);
 
 static systime_t timeout = MS2ST(200);
+static mutex_t mtx_sd1;
 
 static THD_WORKING_AREA(waBlink, 0);
 static THD_FUNCTION(Blink, arg) {
@@ -27,27 +28,37 @@ static THD_FUNCTION(Blink, arg) {
   }
 }
 
-static uint8_t buff[BUFF_SIZE];
-
-static THD_WORKING_AREA(waPing, 256);
+static THD_WORKING_AREA(waPing, 512);
 static THD_FUNCTION(Ping, arg) {
   (void)arg;
   chRegSetThreadName("ping");
-
+  uint8_t buff[BUFF_SIZE];
+  uint8_t rx[4];;
   uint8_t length;
   uint8_t *p;
   msg_t status;
 
   while (true) {
-    uint8_t len = sdReadTimeout(&SD1, buff, 1, timeout);
+    sdRead(&SD1, buff, 1);
     length = buff[0];
-    if (len == 1 && length > 0) {
-      len = sdReadTimeout(&SD1, buff + 1, length, timeout);
-      if (len == length) {
-        status = chMBFetch(&mbfree, (msg_t *)&p, TIME_IMMEDIATE);
-        if (status == MSG_OK) {
-          memcpy(p, buff, length);
-          chMBPost(&mbduty, (msg_t)p, TIME_INFINITE);
+    if (length >= 2) {
+      sdRead(&SD1, buff + 1, 2);
+      if (buff[1] + buff[2] == 0xff) {
+        uint8_t len = sdReadTimeout(&SD1, buff + 3, length - 2, timeout);
+        if (len == length - 2) {
+          status = chMBFetch(&mbfree, (msg_t *)&p, TIME_IMMEDIATE);
+          if (status == MSG_OK) {
+            memcpy(p, buff, length);
+            chMBPost(&mbduty, (msg_t)p, TIME_INFINITE);
+          } else {
+            chMtxLock(&mtx_sd1);
+            rx[0] = 3;
+            rx[1] = buff[1];
+            rx[2] = buff[2];
+            rx[3] = 0xff;
+            sdWrite(&SD1, rx, 4); // busy response
+            chMtxUnlock(&mtx_sd1);
+          }
         }
       }
     }
@@ -65,7 +76,9 @@ static THD_FUNCTION(Pong, arg) {
     chMBFetch(&mbduty, (msg_t *)&p, TIME_INFINITE);
     chThdSleepMilliseconds(20);
     length = *(uint8_t *)p;
+    chMtxLock(&mtx_sd1);
     sdWrite(&SD1, p, length + 1);
+    chMtxUnlock(&mtx_sd1);
     chMBPost(&mbfree, (msg_t)p, TIME_INFINITE);
   }
 }
@@ -76,6 +89,8 @@ int main(void) {
 
     chMBObjectInit(&mbfree, mbfree_buffer, MB_SIZE);
     chMBObjectInit(&mbduty, mbduty_buffer, MB_SIZE);
+
+    chMtxObjectInit(&mtx_sd1);
 
     for (uint8_t i = 0; i < MB_SIZE; i++)
       chMBPost(&mbfree, (msg_t)(*(buff_rx + i)), TIME_INFINITE);

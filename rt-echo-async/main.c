@@ -28,7 +28,7 @@ static THD_FUNCTION(Blink, arg) {
   }
 }
 
-static THD_WORKING_AREA(waPing, 1024);
+static THD_WORKING_AREA(waPing, 512);
 static THD_FUNCTION(Ping, arg) {
   (void)arg;
   chRegSetThreadName("ping");

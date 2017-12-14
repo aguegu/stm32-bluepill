@@ -28,7 +28,7 @@ static THD_FUNCTION(Blink, arg) {
   }
 }
 
-static THD_WORKING_AREA(waPing, 512);
+static THD_WORKING_AREA(waPing, 1024);
 static THD_FUNCTION(Ping, arg) {
   (void)arg;
   chRegSetThreadName("ping");
@@ -44,20 +44,26 @@ static THD_FUNCTION(Ping, arg) {
     if (length >= 2) {
       sdRead(&SD1, buff + 1, 2);
       if (buff[1] + buff[2] == 0xff) {
-        uint8_t len = sdReadTimeout(&SD1, buff + 3, length - 2, timeout);
-        if (len == length - 2) {
-          status = chMBFetch(&mbfree, (msg_t *)&p, TIME_IMMEDIATE);
-          if (status == MSG_OK) {
-            memcpy(p, buff, length);
-            chMBPost(&mbduty, (msg_t)p, TIME_INFINITE);
-          } else {
-            chMtxLock(&mtx_sd1);
-            rx[0] = 3;
-            rx[1] = buff[1];
-            rx[2] = buff[2];
-            rx[3] = 0xff;
-            sdWrite(&SD1, rx, 4); // busy response
-            chMtxUnlock(&mtx_sd1);
+        if (length == 2) {
+          chMtxLock(&mtx_sd1);
+          sdWrite(&SD1, buff, 3);
+          chMtxUnlock(&mtx_sd1);
+        } else {
+          uint8_t len = sdReadTimeout(&SD1, buff + 3, length - 2, timeout);
+          if (len == length - 2) {
+            status = chMBFetch(&mbfree, (msg_t *)&p, TIME_IMMEDIATE);
+            if (status == MSG_OK) {
+              memcpy(p, buff, length);
+              chMBPost(&mbduty, (msg_t)p, TIME_INFINITE);
+            } else {
+              chMtxLock(&mtx_sd1);
+              rx[0] = 3;
+              rx[1] = buff[1];
+              rx[2] = buff[2];
+              rx[3] = 0xff;
+              sdWrite(&SD1, rx, 4); // busy response
+              chMtxUnlock(&mtx_sd1);
+            }
           }
         }
       }

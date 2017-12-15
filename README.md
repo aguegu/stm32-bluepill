@@ -17,3 +17,9 @@ howto:
 3. `cd demo_folder`
 4. `make` to build
 5. `make flash` to write chips with st-flash
+
+
+Tricky:
+
+* can not read only 1 byte from stm32f1 i2c (DMA).
+* chThdSleep value should not be 0.

@@ -58,7 +58,8 @@ THD_FUNCTION(Thread2, arg) {
 
   while (true) {
     ds3231_refresh(&tm);
-    chprintf((BaseSequentialStream *)&SD1, "%02x:%02x:%02x\r\n", tm.data[2], tm.data[1], tm.data[0]);
+    // chprintf((BaseSequentialStream *)&SD1, "%02x:%02x:%02x\r\n", tm.data[2], tm.data[1], tm.data[0]);
+    chprintf((BaseSequentialStream *)&SD1, "%02x\r\n", tm.data[0]);
     chThdSleepSeconds(1);
   }
 }

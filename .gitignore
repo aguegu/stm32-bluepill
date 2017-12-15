@@ -3,6 +3,7 @@ build/
 .project
 .cproject
 .settings/
+venv/
 ChibiOS
 gcc-arm-none-eabi
 chibios-i2c-slave

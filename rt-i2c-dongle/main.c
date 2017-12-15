@@ -84,7 +84,7 @@ static THD_FUNCTION(Pong, arg) {
   // uint8_t length;
   chRegSetThreadName("pong");
   uint8_t buff[BUFF_SIZE];
-  systime_t tmo = MS2ST(4);
+  // systime_t tmo = MS2ST(4);
   // uint8_t addr = 0x00;
 
   while (true) {
@@ -92,14 +92,23 @@ static THD_FUNCTION(Pong, arg) {
     memcpy(buff, p, 3);
     i2cAcquireBus(&I2CD1);
     // // uint8_t addr = 0x00;
-    i2cMasterTransmitTimeout(&I2CD1, p[3],
-                            p + 5, p[0] - 4 , buff + 3, p[4], tmo);
+    // i2cMasterTransmitTimeout(&I2CD1, p[3],
+    //                         p + 5, p[0] - 4 , buff + 3, p[4], tmo);
+    // p: length, uid, ~uid, slave_address,
+    // rxbytes, txbuf
+
+    if (p[0] == 4) {
+      i2cMasterReceive(&I2CD1, p[3], buff + 3, p[4]);
+    } else {
+      i2cMasterTransmit(&I2CD1, p[3],
+                              p + 5, p[0] - 4, buff + 3, p[4]);
+    }
+
+
     // osalDbgCheck(MSG_OK == status);
     i2cReleaseBus(&I2CD1);
-    chThdSleepMilliseconds(20);
-    chMtxLock(&mtx_sd1);
 
-    // length = p[4] + 3;
+    chMtxLock(&mtx_sd1);
     buff[0] = p[4] + 2;
     sdWrite(&SD1, buff, buff[0] + 1);
 

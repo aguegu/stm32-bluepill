@@ -81,37 +81,45 @@ static THD_WORKING_AREA(waPong, 1024);
 static THD_FUNCTION(Pong, arg) {
   (void)arg;
   uint8_t *p;
-  // uint8_t length;
   chRegSetThreadName("pong");
   uint8_t buff[BUFF_SIZE];
-  // systime_t tmo = MS2ST(4);
-  // uint8_t addr = 0x00;
+  systime_t tmo = MS2ST(4);
+  msg_t status;
 
   while (true) {
     chMBFetch(&mbduty, (msg_t *)&p, TIME_INFINITE);
     memcpy(buff, p, 3);
     i2cAcquireBus(&I2CD1);
-    // p: length, uid, ~uid, slave_address,
-    // extra_wait, rxbytes, txbuf
 
-    // 06 00 ff 50 00
-    // 10 00
     if (p[0] == 5) {
-      i2cMasterReceive(&I2CD1, p[3], buff + 3, p[5]);
+      status = i2cMasterReceiveTimeout(&I2CD1, p[3], buff + 3, p[5], tmo);
     } else {
-      i2cMasterTransmit(&I2CD1, p[3],
-                              p + 6, p[0] - 5, buff + 3, p[5]);
+      status = i2cMasterTransmitTimeout(&I2CD1, p[3],
+                              p + 6, p[0] - 5, buff + 3, p[5], tmo);
     }
 
     if (p[4]) {
       chThdSleepMilliseconds(p[4]);
     }
 
-    // osalDbgCheck(MSG_OK == status);
+    switch (status) {
+      case MSG_TIMEOUT:
+        buff[3] = 1;
+        buff[0] = 3;
+        break;
+      case MSG_RESET:
+        buff[3] = 2;
+        buff[0] = 3;
+        break;
+      default:
+        buff[3] = status;
+        buff[0] = p[5] + 3;
+    }
+
     i2cReleaseBus(&I2CD1);
 
     chMtxLock(&mtx_sd1);
-    buff[0] = p[5] + 2;
+
     sdWrite(&SD1, buff, buff[0] + 1);
     chMtxUnlock(&mtx_sd1);
 

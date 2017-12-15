@@ -111,7 +111,7 @@ static THD_FUNCTION(Pong, arg) {
     i2cReleaseBus(&I2CD1);
 
     chMtxLock(&mtx_sd1);
-    buff[0] = p[4] + 2;
+    buff[0] = p[5] + 2;
     sdWrite(&SD1, buff, buff[0] + 1);
     chMtxUnlock(&mtx_sd1);
 

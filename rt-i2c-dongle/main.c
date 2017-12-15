@@ -92,10 +92,10 @@ static THD_FUNCTION(Pong, arg) {
     i2cAcquireBus(&I2CD1);
 
     if (p[0] == 5) {
-      status = i2cMasterReceiveTimeout(&I2CD1, p[3], buff + 3, p[5], tmo);
+      status = i2cMasterReceiveTimeout(&I2CD1, p[3], buff + 4, p[5], tmo);
     } else {
       status = i2cMasterTransmitTimeout(&I2CD1, p[3],
-                              p + 6, p[0] - 5, buff + 3, p[5], tmo);
+                              p + 6, p[0] - 5, buff + 4, p[5], tmo);
     }
 
     if (p[4]) {

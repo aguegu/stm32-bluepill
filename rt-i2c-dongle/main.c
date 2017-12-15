@@ -59,7 +59,7 @@ static THD_FUNCTION(Ping, arg) {
           if (len == length - 2) {
             status = chMBFetch(&mbfree, (msg_t *)&p, TIME_IMMEDIATE);
             if (status == MSG_OK) {
-              memcpy(p, buff, length);
+              memcpy(p, buff, length + 1);
               chMBPost(&mbduty, (msg_t)p, TIME_INFINITE);
             } else {
               chMtxLock(&mtx_sd1);
@@ -91,19 +91,21 @@ static THD_FUNCTION(Pong, arg) {
     chMBFetch(&mbduty, (msg_t *)&p, TIME_INFINITE);
     memcpy(buff, p, 3);
     i2cAcquireBus(&I2CD1);
-    // // uint8_t addr = 0x00;
-    // i2cMasterTransmitTimeout(&I2CD1, p[3],
-    //                         p + 5, p[0] - 4 , buff + 3, p[4], tmo);
     // p: length, uid, ~uid, slave_address,
-    // rxbytes, txbuf
+    // extra_wait, rxbytes, txbuf
 
-    if (p[0] == 4) {
-      i2cMasterReceive(&I2CD1, p[3], buff + 3, p[4]);
+    // 06 00 ff 50 00
+    // 10 00
+    if (p[0] == 5) {
+      i2cMasterReceive(&I2CD1, p[3], buff + 3, p[5]);
     } else {
       i2cMasterTransmit(&I2CD1, p[3],
-                              p + 5, p[0] - 4, buff + 3, p[4]);
+                              p + 6, p[0] - 5, buff + 3, p[5]);
     }
 
+    if (p[4]) {
+      chThdSleepMilliseconds(p[4]);
+    }
 
     // osalDbgCheck(MSG_OK == status);
     i2cReleaseBus(&I2CD1);
@@ -111,9 +113,8 @@ static THD_FUNCTION(Pong, arg) {
     chMtxLock(&mtx_sd1);
     buff[0] = p[4] + 2;
     sdWrite(&SD1, buff, buff[0] + 1);
-
-    // sdWrite(&SD1, p, p[0] + 1);
     chMtxUnlock(&mtx_sd1);
+
     chMBPost(&mbfree, (msg_t)p, TIME_INFINITE);
   }
 }

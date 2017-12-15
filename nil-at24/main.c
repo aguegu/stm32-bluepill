@@ -1,23 +1,6 @@
-/*
-    ChibiOS - Copyright (C) 2006..2016 Giovanni Di Sirio
-
-    Licensed under the Apache License, Version 2.0 (the "License");
-    you may not use this file except in compliance with the License.
-    You may obtain a copy of the License at
-
-        http://www.apache.org/licenses/LICENSE-2.0
-
-    Unless required by applicable law or agreed to in writing, software
-    distributed under the License is distributed on an "AS IS" BASIS,
-    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-    See the License for the specific language governing permissions and
-    limitations under the License.
-*/
-
 #include "hal.h"
 #include "ch.h"
 #include "chprintf.h"
-#include "ds3231.h"
 
 THD_WORKING_AREA(waThread1, 32);
 THD_FUNCTION(Thread1, arg) {
@@ -36,6 +19,13 @@ static const I2CConfig i2cfg1 = {
     FAST_DUTY_CYCLE_2,
 };
 
+void logBuff(BaseSequentialStream* chp, uint8_t *p, uint8_t length) {
+  for (uint8_t i = 0; i < length; i++) {
+    chprintf(chp, "%02x ", p[i]);
+  }
+  chprintf(chp, "\r\n");
+}
+
 THD_WORKING_AREA(waThread2, 128);
 THD_FUNCTION(Thread2, arg) {
   (void)arg;
@@ -50,23 +40,43 @@ THD_FUNCTION(Thread2, arg) {
   palSetPadMode(GPIOB, 6, PAL_MODE_STM32_ALTERNATE_OPENDRAIN);  // I2C SCL
   palSetPadMode(GPIOB, 7, PAL_MODE_STM32_ALTERNATE_OPENDRAIN);  // I2C SDA
 
-  i2c_init();
-  Ds3231 tm = {&I2CD1, 0x68, {0}};
-  ds3231_init(&tm);
-  uint8_t now[3] = {0x56, 0x34, 0x12}; // second, minute, hour
-  ds3231_setTime(&tm, now, 3);
+  BaseSequentialStream* chp = (BaseSequentialStream*) &SD1;
+
+  uint8_t address = 0x50;
+  uint8_t out[16], in[17];
+  // uint8_t x = 0x00;
+
+  i2cMasterTransmit(&I2CD1, address, in, 1, out, 16);
+  logBuff(chp, out, 16);
+
+  for (uint8_t i = 1; i < 17; i++) {
+    in[i] = i - 1;
+  }
+
+  i2cMasterTransmit(&I2CD1, address, in, 17, NULL, 0);
+  chThdSleepMilliseconds(5);
+
+  i2cMasterTransmit(&I2CD1, address, in, 1, out, 16);
+  logBuff(chp, out, 16);
+
+  for (uint8_t i = 1; i < 17; i++) {
+    in[i] = 0xff;
+  }
+
+  i2cMasterTransmit(&I2CD1, address, in, 17, NULL, 0);
+  chThdSleepMilliseconds(5);
+
+  i2cMasterTransmit(&I2CD1, address, in, 1, out, 16);
+  logBuff(chp, out, 16);
 
   while (true) {
-    ds3231_refresh(&tm);
-    // chprintf((BaseSequentialStream *)&SD1, "%02x:%02x:%02x\r\n", tm.data[2], tm.data[1], tm.data[0]);
-    chprintf((BaseSequentialStream *)&SD1, "%02x\r\n", tm.data[0]);
     chThdSleepSeconds(1);
   }
 }
 
 THD_TABLE_BEGIN
   THD_TABLE_ENTRY(waThread1, "blinker1", Thread1, NULL)
-  THD_TABLE_ENTRY(waThread2, "ds3231", Thread2, NULL)
+  THD_TABLE_ENTRY(waThread2, "at24c", Thread2, NULL)
 THD_TABLE_END
 
 

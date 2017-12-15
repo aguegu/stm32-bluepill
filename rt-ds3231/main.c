@@ -55,7 +55,7 @@ int main(void) {
     palSetPadMode(GPIOA, 9, PAL_MODE_STM32_ALTERNATE_OPENDRAIN);  // USART TX
     palSetPadMode(GPIOA, 10, PAL_MODE_INPUT);                     // USART RX
 
-    ds3231_init(&I2CD1);
+    // ds3231_init(&I2CD1);
 
     while (true) {
       ds3231_refresh(&I2CD1);

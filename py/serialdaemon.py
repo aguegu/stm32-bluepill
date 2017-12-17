@@ -66,12 +66,12 @@ class SerialDaemon(threading.Thread):
         else:
             raise RuntimeError('already stopped')
 
-    def __enter__(self):    # with
-        self.start()
-        self._connection_made.wait()
-        if not self.alive:
-            raise RuntimeError('connection_lost already called')
-        return self.protocol
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        self.close()
+    # def __enter__(self):    # with
+    #     self.start()
+    #     self._connection_made.wait()
+    #     if not self.alive:
+    #         raise RuntimeError('connection_lost already called')
+    #     return self.protocol
+    #
+    # def __exit__(self, exc_type, exc_val, exc_tb):
+    #     self.close()

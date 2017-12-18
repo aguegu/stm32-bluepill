@@ -19,31 +19,13 @@ class OttoServo():
             return int(self.home + (angle - 90.) * self.maximun / 90.)
         return int(self.home + (90. - angle) * self.minimun / 90.)
 
-    def SetPosition(self, angle, seconds=0, func=easing.Linear):
+    def SetPosition(self, angle, millis=0, func=easing.Linear):
         width = self.get_width(angle)
-        self.host.curve(self.pin, width, seconds, func)
+        self.host.curve(self.pin, width, millis * 0.001, func)
 
-YL = 0
-YR = 1
-RL = 2
-RR = 3
-
-# servo[0].attach(PIN_RR);
-# servo[1].attach(PIN_RL);
-# servo[2].attach(PIN_YR);
-# servo[3].attach(PIN_YL);
-
-# RL = 0
-# YL = 1
-# YR = 2
-# RR = 3
-# homes = [321, 291, 288, 289]   # 90 degree
-# minimun = [-187, -170, -178, -172]
-# maximun = [188, 185, 224, 204]
-
-homes = [291, 288, 321, 289]   # 90 degree
-minimun = [-170, -178, -187, -172]
-maximun = [185, 224, 188, 203]
+    def oscillate(self, amplitude, phase, millis=0):
+        # print(amplitude, phase, millis)
+        self.host.oscillate(self.pin, amplitude, phase, millis * 0.001)
 
 
 def delay(millis):
@@ -152,10 +134,37 @@ if __name__ == '__main__':
         servo[1].SetPosition(90)
         delay(tempo/2)
 
-    def moveNServos(time, newPosition):
+    def moveNServos(ts, newPosition):
         for i, x in enumerate(newPosition):
-            servo[i].SetPosition(x)
-        delay(time)
+            servo[i].SetPosition(x, ts)
+        delay(ts)
+
+    def noGravity(tempo):
+        move1 = [120, 140, 90, 90]
+        move2 = [140, 140, 90, 90]
+        move3 = [120, 140, 90, 90]
+        move4 = [90, 90, 90, 90]
+
+        home()
+        moveNServos(tempo*2, move1)
+        moveNServos(tempo*2, move2)
+        delay(tempo*2)
+        moveNServos(tempo*2, move3)
+        moveNServos(tempo*2, move4)
+
+    def oscillate(amplitude, offset, tempo, phase):
+        for i, x in enumerate(servo):
+            x.SetPosition(90 + offset[i])
+            x.oscillate(amplitude[i], phase[i], tempo)
+        delay(tempo)
+
+    def crusaito(steps, tempo):
+        A = [25, 25, 30, 30]
+        O = [- 15, 15, 0, 0]
+        # phase_diff = [DEG2RAD(0), DEG2RAD(180 + 120), DEG2RAD(90), DEG2RAD(90)]
+        phase_diff = [0] * 4
+        for _ in range(steps):
+            oscillate(A, O, t, phase_diff)
 
     def primera_parte():
         move1 = [60, 120, 90, 90]
@@ -164,9 +173,9 @@ if __name__ == '__main__':
 
         for _ in range(3):
             for _ in range(3):
-              lateral_fuerte(1, t/2);
-              lateral_fuerte(0, t/4);
-              lateral_fuerte(1, t/4);
+                lateral_fuerte(1, t/2);
+                lateral_fuerte(0, t/4);
+                lateral_fuerte(1, t/4);
 
 
 
@@ -188,7 +197,7 @@ if __name__ == '__main__':
         #
         # pause=millis();
         home()
-        # crusaito(1, t*1.4);
+        crusaito(1, t*1.4);
         moveNServos(t*1, move3)
         delay(2*t)
         home()
@@ -197,14 +206,32 @@ if __name__ == '__main__':
 
     try:
         home()
+        delay(t)
         # goingUp()
-        kickLeft(t)
-        kickRight(t)
+        # kickLeft(t)
+        # kickRight(t)
 
-        primera_parte()
+        # primera_parte()
+        #
+        # noGravity(t)
+        # crusaito(1, t*1.4)
+
+        # servo[0].SetPosition(90-15)
+        # servo[1].SetPosition(90+15)
+        # servo[0].oscillate(25, 180, 2*t)
+        # servo[1].oscillate(25, 0, 2*t)
+        # delay(2*t)
 
         home()
-        delay(1)
+    #     int A[4]= {15, 15, 30, 30}
+    # int O[4] = {0, 0, 0, 0};
+    # double phase_diff[4] = {DEG2RAD(0), DEG2RAD(0), DEG2RAD(90), DEG2RAD(90)};
+        while True:
+            oscillate([15, 15, 30, 30], [0, 0, 0, 0], t, [0, 0, 90, 90])
+            oscillate([15, 15, 30, 30], [0, 0, 0, 0], t, [180, 180, 270, 270])
+
+        home()
+        delay(t)
 
         # t.curve(15, 150, 0, easing.Linear)
         # time.sleep(1)
@@ -219,72 +246,3 @@ if __name__ == '__main__':
     finally:
         host.stop()
         host.join()
-
-# tty = serial.Serial('/dev/tty.SLAB_USBtoUART', 115200)
-# print(tty.name)
-#
-#
-# def home():
-#     for i in range(4):
-#         send_width(i, homes[i])
-#
-# def set_angle(index, angle):
-#     if angle >= 90:
-#         send_width(index, int(homes[index] + (angle - 90.) * maximun[index] / 90.))
-#     else:
-#         send_width(index, int(homes[index] + (90. - angle) * minimun[index] / 90.))
-#
-#
-# def send_width(index, width):
-#     tty.write(pack('B', 4) + pack('B', index) + pack('<H', width))
-#     print(tty.readline().decode())
-#
-#
-# def set_all(lst):
-#     for index, differ in enumerate(lst[:4]):
-#         set_angle(index, 90 + differ)
-#
-#
-# def updown():
-#     set_all([0, 0, 45, -45])
-#     time.sleep(2)
-#     set_all([0, 0, 0, 0])
-#     time.sleep(2)
-#
-#
-# if __name__ == '__main__':
-#
-#     # set_angle(3, 0)
-#     # time.sleep(4)
-#     # set_angle(3, 180)
-#     # time.sleep(4)
-#
-#     home()
-#     tempo = 0.495;
-#
-#     # updown()
-#     set_angle(3, 80)
-#     set_angle(2, 100)
-#     time.sleep(tempo)
-#     set_angle(3, 70)
-#     set_angle(2, 110)
-#     time.sleep(tempo)
-#     set_angle(3, 60)
-#     set_angle(2, 120)
-#     time.sleep(tempo)
-#     set_angle(3, 50)
-#     set_angle(2, 130)
-#     time.sleep(tempo)
-#     set_angle(3, 40)
-#     set_angle(2, 140)
-#     time.sleep(tempo)
-#     set_angle(3, 30)
-#     set_angle(2, 150)
-#     time.sleep(tempo)
-#     set_angle(3, 20)
-#     set_angle(2, 160)
-#     time.sleep(tempo)
-#
-#     home()
-#
-#     tty.close()

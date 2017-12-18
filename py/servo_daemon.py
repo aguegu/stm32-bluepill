@@ -6,6 +6,7 @@ from struct import unpack
 import easing
 from datetime import datetime
 from functools import reduce
+import math
 
 
 def toHex(bs):
@@ -47,7 +48,8 @@ class RecvProtocol(Protocol):
                 del self.packet[:]
 
     def handle_packet(self, packet):
-        pass
+        if packet[3]:
+            print(packet[3])
         # print('rx:', toHex(packet), datetime.now())
         # print('rx:', toHex(packet))
 
@@ -94,7 +96,7 @@ class BusDaemon(threading.Thread):
         with self._lock:
             tx = bytes([len(data) + 2, self.uid, 0xff - self.uid]) + data
             # print('tx:', toHex(tx), datetime.now())
-            print('tx:', toHex(tx))
+            # print('tx:', toHex(tx))
             self.tty.write(tx)
             self.uid += 1
             self.uid &= 0xff
@@ -109,8 +111,11 @@ class Servo():
 
     def update(self):
         if self.step < self.span:
-            self.position = int(self.func(self.step + 1))
+            self.position = round(self.func(self.step + 1))
             self.step += 1
+            # print(self.position)
+            if self.position < 150:
+                raise ValueError
 
         if self.step >= self.span:
             self.func = None
@@ -119,6 +124,12 @@ class Servo():
 
     def curve(self, to, span, func):
         self.func = func(self.position, to, span).ease
+        self.span = span
+
+    def oscillate(self, amplitude, phase, span):
+        offset = self.position - amplitude * math.sin(phase * math.pi / 180)
+        # print(amplitude, phase, span)
+        self.func = lambda step: offset + amplitude * math.sin(step * 2 * math.pi / span + phase * math.pi / 180)
         self.span = span
 
 
@@ -172,8 +183,14 @@ class ServoDaemon(threading.Thread):
         if seconds == 0:
             self.servos[index].curve(to, 1, func)
         else:
-            self.servos[index].curve(to, int(seconds * self.freq), func)
+            self.servos[index].curve(to, round(seconds * self.freq), func)
 
+    def oscillate(self, index, amplitude, phase, seconds=0):
+        # print('servo Daemon', index, amplitude, phase, seconds)
+        if seconds == 0:
+            return
+        else:
+            self.servos[index].oscillate(amplitude, phase, round(seconds * self.freq))
 
 if __name__ == '__main__':
     try:

@@ -222,10 +222,10 @@ class Otto():
         self.oscillate([20, 20, 30, 10], [0, 0, 0, 0], tempo, [0, 0, 90, 90])
 
     def moonWalkLeft(self, tempo):
-        self.oscillate([25, 25, 0, 0], [-15, 15, 0, 0], tempo, [0, 60, 90, 90])
+        self.oscillate([50, 50, 0, 0], [-15, 15, 0, 0], tempo, [240, 180, 90, 90])
 
     def moonWalkRight(self, tempo):
-        self.oscillate([25, 25, 0, 0], [-15, 15, 0, 0], tempo, [0, 300, 90, 90])
+        self.oscillate([50, 50, 0, 0], [-15, 15, 0, 0], tempo, [0, 300, 90, 90])
 
     def crusaito(self, tempo):
         self.oscillate([25, 25, 30, 30], [-15, 15, 0, 0], tempo, [0, 300, 90, 90])

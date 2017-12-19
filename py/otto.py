@@ -12,6 +12,7 @@ class OttoServo():
         self.maximun = maximun
 
     def get_width(self, angle):
+        angle %= 360
         if angle >= 90:
             return int(self.home + (angle - 90.) * self.maximun / 90.)
         return int(self.home + (90. - angle) * self.minimun / 90.)
@@ -222,7 +223,7 @@ class Otto():
         self.oscillate([20, 20, 30, 10], [0, 0, 0, 0], tempo, [0, 0, 90, 90])
 
     def moonWalkLeft(self, tempo):
-        self.oscillate([50, 50, 0, 0], [-15, 15, 0, 0], tempo, [240, 180, 90, 90])
+        self.oscillate([50, 50, 0, 0], [-15, 15, 0, 0], tempo, [120, 180, 90, 90])
 
     def moonWalkRight(self, tempo):
         self.oscillate([50, 50, 0, 0], [-15, 15, 0, 0], tempo, [0, 300, 90, 90])

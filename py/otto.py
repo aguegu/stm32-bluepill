@@ -1,105 +1,251 @@
-import serial
 import time
-from struct import pack, unpack
-from servo_daemon import ServoDaemon
-from dancer import OttoServo, Dancer, delay
+import easing
 
 
-if __name__ == '__main__':
+class OttoServo():
+    def __init__(self, host, name, pin, home, minimun, maximun):
+        self.host = host
+        self.name = name
+        self.pin = pin
+        self.home = home
+        self.minimun = minimun
+        self.maximun = maximun
 
-    tty = serial.Serial('/dev/tty.SLAB_USBtoUART', 115200)
-    host = ServoDaemon(tty)
-    servos = [
-        OttoServo(host, 'RR', 3, 289, -172, 203),
-        OttoServo(host, 'RL', 2, 321, -187, 188),
-        OttoServo(host, 'YR', 1, 288, -178, 224),
-        OttoServo(host, 'YL', 0, 291, -170, 185),
-    ]
-    host.start()
-    host.connect()
+    def get_width(self, angle):
+        if angle >= 90:
+            return int(self.home + (angle - 90.) * self.maximun / 90.)
+        return int(self.home + (90. - angle) * self.minimun / 90.)
 
-    t = 495
-    dancer = Dancer(servos, t)
+    def SetPosition(self, angle, millis=0, func=easing.Linear):
+        width = self.get_width(angle)
+        self.host.curve(self.pin, width, millis * 0.001, func)
 
-    try:
-        dancer.home()
-        delay(t)
+    def oscillate(self, amplitude, phase, millis=0):
+        # print(amplitude, phase, millis)
+        self.host.oscillate(self.pin, amplitude, phase, millis * 0.001)
 
-        dancer.primera_parte()
-        dancer.segunda_parte()
 
-        for _ in range(4):
-            dancer.moonWalkLeft(t*2)
+def delay(millis):
+    time.sleep(millis * 0.001)
 
-        for _ in range(4):
-            dancer.moonWalkRight(t*2)
 
-        for _ in range(4):
-            dancer.moonWalkLeft(t*2)
+class Otto():
+    def __init__(self, servos, tempo):
+        self.servos = servos
+        self.tempo = tempo
 
-        for _ in range(4):
-            dancer.moonWalkRight(t*2)
+    def home(self):
+        for x in self.servos:
+            x.SetPosition(90)
 
-        dancer.primera_parte()
-        dancer.crusaito(t*8)
-        dancer.crusaito(t*7)
+    def goingUp(self, tempo):
+        self.home()
+        delay(tempo)
+        self.servos[0].SetPosition(80)
+        self.servos[1].SetPosition(100)
+        delay(tempo)
+        self.servos[0].SetPosition(70)
+        self.servos[1].SetPosition(110)
+        delay(tempo)
+        self.servos[0].SetPosition(60)
+        self.servos[1].SetPosition(120)
+        delay(tempo)
+        self.servos[0].SetPosition(50)
+        self.servos[1].SetPosition(130)
+        delay(tempo)
+        self.servos[0].SetPosition(40)
+        self.servos[1].SetPosition(140)
+        delay(tempo)
+        self.servos[0].SetPosition(30)
+        self.servos[1].SetPosition(150)
+        delay(tempo)
+        self.servos[0].SetPosition(20)
+        self.servos[1].SetPosition(160)
+        delay(tempo)
 
-        for _ in range(16):
-            dancer.flapping(t / 4)
-            delay(3*t/4)
+    def kickLeft(self, tempo):
+        self.home()
+        delay(tempo)
+        self.servos[0].SetPosition(50)
+        self.servos[1].SetPosition(70)
+        delay(tempo)
+        self.servos[0].SetPosition(80)
+        self.servos[1].SetPosition(70)
+        delay(tempo/4)
+        self.servos[0].SetPosition(30)
+        self.servos[1].SetPosition(70)
+        delay(tempo/4)
+        self.servos[0].SetPosition(80)
+        self.servos[1].SetPosition(70)
+        delay(tempo/4)
+        self.servos[0].SetPosition(30)
+        self.servos[1].SetPosition(70)
+        delay(tempo/4)
+        self.servos[0].SetPosition(80)
+        self.servos[1].SetPosition(70)
+        delay(tempo)
 
-        for _ in range(4):
-            dancer.moonWalkRight(t * 2)
+    def kickRight(self, tempo):
+        self.home()
+        delay(tempo)
+        self.servos[0].SetPosition(110)
+        self.servos[1].SetPosition(130)
+        delay(tempo)
+        self.servos[0].SetPosition(110)
+        self.servos[1].SetPosition(100)
+        delay(tempo/4)
+        self.servos[0].SetPosition(110)
+        self.servos[1].SetPosition(150)
+        delay(tempo/4)
+        self.servos[0].SetPosition(110)
+        self.servos[1].SetPosition(80)
+        delay(tempo/4)
+        self.servos[0].SetPosition(110)
+        self.servos[1].SetPosition(150)
+        delay(tempo/4)
+        self.servos[0].SetPosition(110)
+        self.servos[1].SetPosition(100)
+        delay(tempo)
 
-        for _ in range(4):
-            dancer.moonWalkLeft(t * 2)
+    def lateral_fuerte(self, side, tempo):
+        self.home()
+        if side:
+            self.servos[0].SetPosition(40)
+        else:
+            self.servos[1].SetPosition(140)
 
-        for _ in range(4):
-            dancer.moonWalkRight(t * 2)
+        delay(tempo/2)
 
-        for _ in range(4):
-            dancer.moonWalkLeft(t * 2)
+        self.servos[0].SetPosition(90)
+        self.servos[1].SetPosition(90)
+        delay(tempo/2)
 
-        dancer.drunk(t * 4)
-        dancer.drunk(t * 4)
-        dancer.drunk(t * 4)
-        dancer.drunk(t * 4)
-        dancer.kickLeft(t)
-        dancer.kickRight(t)
-        dancer.drunk(t * 8)
-        dancer.drunk(t * 4)
-        dancer.drunk(t / 2)
+    def moveNServos(self, ts, newPosition):
+        for i, x in enumerate(newPosition):
+            self.servos[i].SetPosition(x, ts)
+        delay(ts)
 
-        delay(t * 4)
+    def noGravity(self, tempo):
+        move1 = [120, 140, 90, 90]
+        move2 = [140, 140, 90, 90]
+        move3 = [120, 140, 90, 90]
+        move4 = [90, 90, 90, 90]
 
-        dancer.drunk(t/2)
+        self.home()
+        self.moveNServos(tempo*2, move1)
+        self.moveNServos(tempo*2, move2)
+        delay(tempo*2)
+        self.moveNServos(tempo*2, move3)
+        self.moveNServos(tempo*2, move4)
 
-        delay(t * 4)
-        dancer.walk(t * 2)
-        dancer.walk(t * 2)
-        dancer.backyard(t * 2)
-        dancer.backyard(t * 2)
-        dancer.goingUp(t * 2)
-        dancer.goingUp(t * 1)
-        dancer.noGravity(t * 2)
-        dancer.crusaito(t * 2)
-        dancer.crusaito(t * 8)
-        dancer.crusaito(t * 2)
-        dancer.crusaito(t * 8)
-        dancer.crusaito(t * 2)
-        dancer.crusaito(t * 3)
+    def oscillate(self, amplitude, offset, tempo, phase):
+        for i, x in enumerate(self.servos):
+            x.SetPosition(90 + offset[i])
+            x.oscillate(amplitude[i], phase[i], tempo)
+        delay(tempo)
 
-        delay(t)
+    def primera_parte(self):
+        move1 = [60, 120, 90, 90]
+        move2 = [90, 90, 90, 90]
+        move3 = [40, 140, 90, 90]
 
-        dancer.primera_parte()
-        for _ in range(32):
-            dancer.flapping(t / 2)
-            delay(t / 2)
+        for _ in range(3):
+            for _ in range(3):
+                self.lateral_fuerte(1, self.tempo/2)
+                self.lateral_fuerte(0, self.tempo/4)
+                self.lateral_fuerte(1, self.tempo/4)
 
-        dancer.home()
+        self.home()
+        self.moveNServos(self.tempo * 0.4, move1)
+        self.moveNServos(self.tempo * 0.4, move2)
+        delay(self.tempo * 1.2)
 
-    except (KeyboardInterrupt, SystemExit):
-        print('exit')
-    finally:
-        host.stop()
-        host.join()
+        for _ in range(2):
+            self.lateral_fuerte(1, self.tempo/2)
+            self.lateral_fuerte(0, self.tempo/4)
+            self.lateral_fuerte(1, self.tempo/4)
+            delay(self.tempo)
+
+        self.home()
+        self.crusaito(self.tempo * 1.4)
+        self.moveNServos(self.tempo * 1, move3)
+        delay(2 * self.tempo)
+        self.home()
+        delay(2 * self.tempo)
+
+    def segunda_parte(self):
+        move1 = [90, 90, 80, 100]
+        move2 = [90, 90, 100, 80]
+        move3 = [90, 90, 80, 100]
+        move4 = [90, 90, 100, 80]
+        move5 = [40, 140, 80, 100]
+        move6 = [40, 140, 100, 80]
+        move7 = [90, 90, 80, 100]
+        move8 = [90, 90, 100, 80]
+        move9 = [40, 140, 80, 100]
+        move10 = [40, 140, 100, 80]
+        move11 = [90, 90, 80, 100]
+        move12 = [90, 90, 100, 80]
+
+        for _ in range(7):
+            for _ in range(3):
+                self.moveNServos(self.tempo * 0.15, move1)
+                self.moveNServos(self.tempo * 0.15, move2)
+                self.moveNServos(self.tempo * 0.15, move3)
+                self.moveNServos(self.tempo * 0.15, move4)
+
+            self.moveNServos(self.tempo * 0.15, move5)
+            self.moveNServos(self.tempo * 0.15, move6)
+            self.moveNServos(self.tempo * 0.15, move7)
+            self.moveNServos(self.tempo * 0.15, move8)
+
+        for _ in range(3):
+            self.moveNServos(self.tempo * 0.15, move9)
+            self.moveNServos(self.tempo * 0.15, move10)
+            self.moveNServos(self.tempo * 0.15, move11)
+            self.moveNServos(self.tempo * 0.15, move12)
+
+    def walk(self, tempo):
+        self.oscillate([15, 15, 30, 30], [0, 0, 0, 0], tempo, [0, 0, 90, 90])
+        # self.oscillate([15, 15, 30, 30], [0, 0, 0, 0], t, [180, 180, 270, 270])
+
+    def run(self, tempo):
+        self.oscillate([10, 10, 10, 10], [0, 0, 0, 0], tempo, [0, 0, 90, 90])
+
+    def backyard(self, tempo):
+        self.oscillate([15, 15, 30, 30], [0, 0, 0, 0], tempo, [0, 0, -90, -90])
+
+    def turnLeft(self, tempo):
+        self.oscillate([20, 20, 10, 30], [0, 0, 0, 0], tempo, [0, 0, 90, 90])
+
+    def turnRight(self, tempo):
+        self.oscillate([20, 20, 30, 10], [0, 0, 0, 0], tempo, [0, 0, 90, 90])
+
+    def moonWalkLeft(self, tempo):
+        self.oscillate([25, 25, 0, 0], [-15, 15, 0, 0], tempo, [0, 60, 90, 90])
+
+    def moonWalkRight(self, tempo):
+        self.oscillate([25, 25, 0, 0], [-15, 15, 0, 0], tempo, [0, 300, 90, 90])
+
+    def crusaito(self, tempo):
+        self.oscillate([25, 25, 30, 30], [-15, 15, 0, 0], tempo, [0, 300, 90, 90])
+
+    def swig(self, tempo):
+        self.oscillate([25, 25, 0, 0], [-15, 15, 0, 0], tempo, [0, 0, 90, 90])
+
+    def upDown(self, tempo):
+        self.oscillate([25, 25, 0, 0], [-15, 15, 0, 0], tempo, [180, 0, 270, 270])
+
+    def flapping(self, tempo):
+        self.oscillate([15, 15, 8, 8], [-15, 15, 0, 0], tempo, [0, 180, 90, -90])
+
+    def drunk(self, tempo):
+        move1 = [60, 70, 90, 90]
+        move2 = [110, 120, 90, 90]
+        move3 = [60, 70, 90, 90]
+        move4 = [110, 120, 90, 90]
+
+        self.moveNServos(tempo*0.235, move1)
+        self.moveNServos(tempo*0.235, move2)
+        self.moveNServos(tempo*0.235, move3)
+        self.moveNServos(tempo*0.235, move4)

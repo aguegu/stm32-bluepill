@@ -23,3 +23,8 @@ Tricky:
 
 * can not read only 1 byte from stm32f1 i2c (DMA).
 * chThdSleep value should not be 0.
+
+* 500ms: 24000000
+* 100ms:  4800000
+*  10ms:   480000
+*   1ms:    96000

@@ -30,12 +30,12 @@ if __name__ == '__main__':
         # servos[1].SetPosition(90 + 30)
 
 
-        while True:
-
-            for _ in range(4):
-                dancer.moonWalkLeft(t*2)
-            for _ in range(4):
-                dancer.moonWalkRight(t*2)
+        # while True:
+        #
+        #     for _ in range(4):
+        #         dancer.moonWalkLeft(t*2)
+        #     for _ in range(4):
+        #         dancer.moonWalkRight(t*2)
 
             # dancer.oscillate([25, 25, 0, 0], [-15, 15, 0, 0], t, [0, 60, 90, 90])
             # dancer.oscillate([25, 25, 0, 0], [-15, 15, 0, 0], t, [0, 300, 90, 90])

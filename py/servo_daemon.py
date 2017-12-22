@@ -192,6 +192,7 @@ class ServoDaemon(threading.Thread):
         else:
             self.servos[index].oscillate(amplitude, phase, round(seconds * self.freq))
 
+
 if __name__ == '__main__':
     try:
         tty = serial.Serial('/dev/tty.SLAB_USBtoUART', 115200)

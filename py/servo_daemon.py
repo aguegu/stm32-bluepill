@@ -114,8 +114,8 @@ class Servo():
             self.position = round(self.func(self.step + 1))
             self.step += 1
             # print(self.position)
-            if self.position < 150:
-                raise ValueError
+            # if self.position < 150:
+            #     raise ValueError
 
         if self.step >= self.span:
             self.func = None

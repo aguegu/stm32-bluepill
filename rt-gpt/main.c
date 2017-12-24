@@ -80,21 +80,130 @@ double calc_position(Servo * self, uint16_t step) {
   return self->start + self->end * r - self->start * r;
 }
 
-double linear(double r) {
+double easeLinear(double r) {
   return r;
 }
 
-double sineEaseIn(double r) {
+double easeSineIn(double r) {
   return sin((r-1) * PI / 2) + 1;
 }
 
-double sineEaseOut(double r) {
+double easeSineOut(double r) {
   return sin(r * PI / 2);
 }
 
-double sineEaseItOut(double r) {
+double easeSineInOut(double r) {
   return 0.5 * (1 - cos(r * PI));
 }
+
+double easeQuadIn(double r) {
+  return r * r;
+}
+
+double easeQuadOut(double r) {
+  return r * (2 - r);
+}
+
+double easeQuadInOut(double r) {
+  if (r < 0.5) {
+    return 2 * r * r;
+  }
+  return (-2 * r * r) + (4 * r) - 1;
+}
+
+double easeCubicIn(double r) {
+  return r * r * r;
+}
+
+double easeCubicOut(double r) {
+  return (r - 1) * (r - 1) * (r - 1) + 1;
+}
+
+double easeCubicInOut(double r) {
+  if (r < 0.5) {
+    return 4 * r * r * r * r;
+  }
+  double p = 2 * r - 2;
+  return 0.5 * p * p * p + 1;
+}
+
+double easeQuarticIn(double r) {
+  return r * r * r * r;
+}
+
+double easeQuarticOut(double r) {
+  return (r - 1) * (r - 1) * (r - 1) * (1 - r) + 1;
+}
+
+double easeQuarticInOut(double r) {
+  if (r < 0.5) {
+    return 4 * r * r * r * r;
+  }
+  double p = 2 * r - 2;
+  return 0.5 * p * p * p + 1;
+}
+
+double easeExponentialIn(double r) {
+  if (r == 0.) {
+    return 0.;
+  }
+  return exp(10 * (r - 1));
+}
+
+double easeExponentialOut(double r) {
+  if (r == 1.) {
+    return 1.;
+  }
+  return 1 - exp(-10 * r);
+}
+
+double easeExponentialInOut(double r) {
+  if (r == 0. || r == 1.) {
+    return r;
+  }
+
+  if (r < 0.5) {
+    return 0.5 * exp(20 * r - 10);
+  }
+  return 1 - 0.5 * exp(10 - 20 * r);
+}
+
+double easeCircularIn(double r) {
+  return 1 - sqrt(1 - r * r);
+}
+
+double easeCircularOut(double r) {
+  return sqrt((2 - r) * r);
+}
+
+double easeCircularInOut(double r) {
+  if (r < 0.5) {
+    return 0.5 * (1 - sqrt(1 - 4 * r * r));
+  }
+  return 0.5 * (sqrt((3 - 2 * r) * (2 * r - 1)) + 1);
+}
+
+double (*EASING[19])(double) = {
+  easeLinear,
+  easeSineIn,
+  easeSineOut,
+  easeSineInOut,
+  easeQuadIn,
+  easeQuadOut,
+  easeQuadInOut,
+  easeCubicIn,
+  easeCubicOut,
+  easeCubicInOut,
+  easeQuarticIn,
+  easeQuarticOut,
+  easeQuarticInOut,
+  easeExponentialIn,
+  easeExponentialOut,
+  easeExponentialInOut,
+  easeCircularIn,
+  easeCircularOut,
+  easeCircularInOut,
+};
 
 void init_servo(Servo * self) {
   self->position = (double)CENTER;
@@ -102,7 +211,7 @@ void init_servo(Servo * self) {
   self->step = 0;
   self->start = self->position;
   self->end = self->position;
-  self->curve = linear;
+  self->curve = easeLinear;
 }
 
 void update(uint8_t index) {
@@ -295,12 +404,14 @@ static THD_FUNCTION(Pong, arg) {
       uint8_t index = *(uint8_t *)(p + i) % LEN;
       uint16_t width = *(uint16_t *)(p + i + 1);
       uint16_t span = *(uint16_t *)(p + i + 3);
+      uint8_t curve = *(uint8_t *)(p + i + 5);
 
       chMtxLock(mtx_servos + index);
       *(uint16_t *)(buff + cursor) = servos[index].step;
       servos[index].start = servos[index].position;
       servos[index].end = width;
       servos[index].span = span;
+      servos[index].curve = EASING[curve];
       chMtxUnlock(mtx_servos + index);
       cursor += 2;
     }

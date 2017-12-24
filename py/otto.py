@@ -12,10 +12,11 @@ class OttoServo():
         self.maximun = maximun
 
     def get_width(self, angle):
-        angle %= 360
-        if angle >= 90:
-            return int(self.home + (angle - 90.) * self.maximun / 90.)
-        return int(self.home + (90. - angle) * self.minimun / 90.)
+        return round(self.home + (angle - 90) * 34.0 / 15.)
+        # angle %= 360
+        # if angle >= 90:
+        #     return int(self.home + (angle - 90.) * self.maximun / 90.)
+        # return int(self.home + (90. - angle) * self.minimun / 90.)
 
     def SetPosition(self, angle, millis=0, func=easing.Linear):
         width = self.get_width(angle)

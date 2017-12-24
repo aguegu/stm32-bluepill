@@ -39,6 +39,7 @@ static mutex_t mtx_sd1;
 static mutex_t mtx_servos[LEN];
 
 BaseSequentialStream * bss = (BaseSequentialStream *)&SD1;
+const double PI = acos(-1);
 
 static THD_WORKING_AREA(waBlink, 0);
 static THD_FUNCTION(Blink, arg) {
@@ -67,14 +68,32 @@ typedef struct {
   uint16_t step;
   double start;
   double end;
+  double (*curve)(double r);
 } Servo;
 
 static Servo servos[LEN];
 static uint8_t buff_i2c[LEN * 4 + 1] = {0};
 
-double linear(Servo * self, uint16_t step) {
+double calc_position(Servo * self, uint16_t step) {
   double t = (double)step / (double)self->span;
-  return self->start + self->end * t - self->start * t;
+  double r = self->curve(t);
+  return self->start + self->end * r - self->start * r;
+}
+
+double linear(double r) {
+  return r;
+}
+
+double sineEaseIn(double r) {
+  return sin((r-1) * PI / 2) + 1;
+}
+
+double sineEaseOut(double r) {
+  return sin(r * PI / 2);
+}
+
+double sineEaseItOut(double r) {
+  return 0.5 * (1 - cos(r * PI));
 }
 
 void init_servo(Servo * self) {
@@ -83,14 +102,14 @@ void init_servo(Servo * self) {
   self->step = 0;
   self->start = self->position;
   self->end = self->position;
+  self->curve = linear;
 }
 
 void update(uint8_t index) {
   Servo * self = servos + index;
   chMtxLock(mtx_servos + index);
   if (self->step < self->span) {
-    self->position = linear(self, self->step + 1);
-    self->step++;
+    self->position = calc_position(self, ++self->step);
   }
 
   if (self->step >= self->span) {
@@ -264,8 +283,6 @@ static THD_FUNCTION(Pong, arg) {
   uint8_t *p;
   chRegSetThreadName("pong");
   uint8_t buff[BUFF_SIZE];
-  systime_t tmo = MS2ST(4);
-  msg_t status;
 
   while (true) {
     chMBFetch(&mbduty, (msg_t *)&p, TIME_INFINITE);
@@ -278,8 +295,7 @@ static THD_FUNCTION(Pong, arg) {
       uint8_t index = *(uint8_t *)(p + i) % LEN;
       uint16_t width = *(uint16_t *)(p + i + 1);
       uint16_t span = *(uint16_t *)(p + i + 3);
-      // uint8_t func = *(uint8_t *)(p + i + 5);
-      // chprintf(bss, "%d, index: %d, width: %d, span: %d, func: %d\r\n", i, index, width, span, func);
+
       chMtxLock(mtx_servos + index);
       *(uint16_t *)(buff + cursor) = servos[index].step;
       servos[index].start = servos[index].position;

@@ -11,8 +11,8 @@ if __name__ == '__main__':
     host = ServoDaemon(tty)
     servos = [
         OttoServo(host, 'RR', 3, 289, -172, 203),
-        OttoServo(host, 'RL', 2, 321, -187, 188),
-        OttoServo(host, 'YR', 1, 288, -178, 224),
+        OttoServo(host, 'RL', 2, 315, -187, 188),
+        OttoServo(host, 'YR', 1, 282, -178, 224),
         OttoServo(host, 'YL', 0, 291, -170, 185),
     ]
     host.start()

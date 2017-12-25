@@ -21,7 +21,9 @@
 #include <string.h>
 
 #define LEN 16
-#define CENTER 306
+#define WIDTH_MID 306
+#define WIDTH_MIN 115
+#define WIDTH_MAX 510
 #define ADDRESS 0x40
 
 #define MB_SIZE 4
@@ -77,7 +79,14 @@ static uint8_t buff_i2c[LEN * 4 + 1] = {0};
 double calc_position(Servo * self, uint16_t step) {
   double t = (double)step / (double)self->span;
   double r = self->curve(t);
-  return self->start + self->end * r - self->start * r;
+  double width = self->start + self->end * r - self->start * r;
+  if (width > WIDTH_MAX) {
+    width = WIDTH_MAX;
+  }
+  if (width < WIDTH_MIN) {
+    width = WIDTH_MIN;
+  }
+  return width;
 }
 
 double easeLinear(double r) {
@@ -183,7 +192,64 @@ double easeCircularInOut(double r) {
   return 0.5 * (sqrt((3 - 2 * r) * (2 * r - 1)) + 1);
 }
 
-double (*EASING[19])(double) = {
+double easeBackIn(double r) {
+  return r * r * r - r * sin(r * PI);
+}
+
+double easeBackOut(double r) {
+  double p = 1.0 - r;
+  return 1 - (p * p * p - p * sin(p * PI));
+}
+
+double easeBackInOut(double r) {
+  double p;
+  if (r < 0.5) {
+    p = 2 * r;
+    return 0.5 * (p * p * p - p * sin(r * PI));
+  }
+
+  p = 1 - (2 * r - 1);
+  return 0.5 * (1 - (p * p * p - p * sin(p * PI))) + 0.5;
+}
+
+double easeElasticIn(double r) {
+  return sin(13 * PI / 2 * r) * exp(10 * (r - 1));
+}
+
+double easeElasticOut(double r) {
+  return sin(-13 * PI / 2 * (r + 1)) * exp(-10 * r) + 1;
+}
+
+double easeElasticInOut(double r) {
+  if (r < 0.5) {
+    return 0.5 * sin(13 * PI / 2 * (2 * r)) * exp(10 * ((2 * r) - 1));
+  }
+  return 0.5 * (sin(-13 * PI / 2 * ((2 * r - 1) + 1)) * exp(-10 * (2 * r - 1)) + 2);
+}
+
+double easeBounceOut(double r) {
+  if (r < 4.0 / 11.0) {
+    return 121.0 * r * r / 16.0;
+  } else if (r < 8.0 / 11.0) {
+    return (363.0 / 40.0 * r * r) - (99.0 / 10.0 * r) + 17.0 / 5.0;
+  } else if (r < 9.0 / 10.0) {
+    return (4356.0 / 361.0 * r * r) - (35442.0 / 1805.0 * r) + 16061.0 / 1805.0;
+  }
+  return (54.0 / 5.0 * r * r) - (513.0 / 25.0 * r) + 268.0 / 25.0;
+}
+
+double easeBounceIn(double r) {
+  return 1 - easeBounceOut(1 - r);
+}
+
+double easeBounceInOut(double r) {
+  if (r < 0.5) {
+    return 0.5 * easeBounceIn (2 * r);
+  }
+  return 0.5 * easeBounceOut(2 * r - 1) + 0.5;
+}
+
+double (*EASING[28])(double) = {
   easeLinear,
   easeSineIn,
   easeSineOut,
@@ -203,10 +269,19 @@ double (*EASING[19])(double) = {
   easeCircularIn,
   easeCircularOut,
   easeCircularInOut,
+  easeBackIn,
+  easeBackOut,
+  easeBackInOut,
+  easeElasticIn,
+  easeElasticOut,
+  easeElasticInOut,
+  easeBounceIn,
+  easeBounceOut,
+  easeBounceInOut,
 };
 
 void init_servo(Servo * self) {
-  self->position = (double)CENTER;
+  self->position = (double)WIDTH_MID;
   self->span = 0;
   self->step = 0;
   self->start = self->position;

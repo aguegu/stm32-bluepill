@@ -42,6 +42,15 @@ class Demo(wx.Frame):
             'easeCircularIn',
             'easeCircularOut',
             'easeCircularInOut',
+            'easeBackIn',
+            'easeBackOut',
+            'easeBackInOut',
+            'easeElasticIn',
+            'easeElasticOut',
+            'easeElasticInOut',
+            'easeBounceIn',
+            'easeBounceOut',
+            'easeBounceInOut',
         ]
 
         self.init_ui()

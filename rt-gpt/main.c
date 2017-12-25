@@ -69,183 +69,177 @@ typedef struct {
   uint16_t step;
   double start;
   double end;
+  int16_t amplitude;
+  int16_t phase;
   double (*curve)(double r);
+  // uint8_t curve;
 } Servo;
 
 static Servo servos[LEN];
 static uint8_t buff_i2c[LEN * 4 + 1] = {0};
 
-double calc_position(Servo * self, uint16_t step) {
-  double t = (double)step / (double)self->span;
-  double r = self->curve(t);
-  double width = self->start + self->end * r - self->start * r;
-  if (width > WIDTH_MAX) {
-    width = WIDTH_MAX;
+double easeLinear(double t) {
+  return t;
+}
+
+double easeSineIn(double t) {
+  return sin((t - 1) * PI / 2) + 1;
+}
+
+double easeSineOut(double t) {
+  return sin(t * PI / 2);
+}
+
+double easeSineInOut(double t) {
+  return 0.5 * (1 - cos(t * PI));
+}
+
+double easeQuadIn(double t) {
+  return t * t;
+}
+
+double easeQuadOut(double t) {
+  return t * (2 - t);
+}
+
+double easeQuadInOut(double t) {
+  if (t < 0.5) {
+    return 2 * t * t;
   }
-  if (width < WIDTH_MIN) {
-    width = WIDTH_MIN;
+  return (-2 * t * t) + (4 * t) - 1;
+}
+
+double easeCubicIn(double t) {
+  return t * t * t;
+}
+
+double easeCubicOut(double t) {
+  return (t - 1) * (t - 1) * (t - 1) + 1;
+}
+
+double easeCubicInOut(double t) {
+  if (t < 0.5) {
+    return 4 * t * t * t;
   }
-  return width;
-}
-
-double easeLinear(double r) {
-  return r;
-}
-
-double easeSineIn(double r) {
-  return sin((r-1) * PI / 2) + 1;
-}
-
-double easeSineOut(double r) {
-  return sin(r * PI / 2);
-}
-
-double easeSineInOut(double r) {
-  return 0.5 * (1 - cos(r * PI));
-}
-
-double easeQuadIn(double r) {
-  return r * r;
-}
-
-double easeQuadOut(double r) {
-  return r * (2 - r);
-}
-
-double easeQuadInOut(double r) {
-  if (r < 0.5) {
-    return 2 * r * r;
-  }
-  return (-2 * r * r) + (4 * r) - 1;
-}
-
-double easeCubicIn(double r) {
-  return r * r * r;
-}
-
-double easeCubicOut(double r) {
-  return (r - 1) * (r - 1) * (r - 1) + 1;
-}
-
-double easeCubicInOut(double r) {
-  if (r < 0.5) {
-    return 4 * r * r * r * r;
-  }
-  double p = 2 * r - 2;
+  double p = 2 * t - 2;
   return 0.5 * p * p * p + 1;
 }
 
-double easeQuarticIn(double r) {
-  return r * r * r * r;
+double easeQuarticIn(double t) {
+  return t * t * t * t;
 }
 
-double easeQuarticOut(double r) {
-  return (r - 1) * (r - 1) * (r - 1) * (1 - r) + 1;
+double easeQuarticOut(double t) {
+  return (t - 1) * (t - 1) * (t - 1) * (1 - t) + 1;
 }
 
-double easeQuarticInOut(double r) {
-  if (r < 0.5) {
-    return 4 * r * r * r * r;
+double easeQuarticInOut(double t) {
+  if (t < 0.5) {
+    return 8 * t * t * t * t;
   }
-  double p = 2 * r - 2;
-  return 0.5 * p * p * p + 1;
+  double p = t - 1;
+  return 1 - 8 * p * p * p * p;
 }
 
-double easeExponentialIn(double r) {
-  if (r == 0.) {
+double easeExponentialIn(double t) {
+  if (t == 0.) {
     return 0.;
   }
-  return exp(10 * (r - 1));
+  return exp(10 * (t - 1));
 }
 
-double easeExponentialOut(double r) {
-  if (r == 1.) {
+double easeExponentialOut(double t) {
+  if (t == 1.) {
     return 1.;
   }
-  return 1 - exp(-10 * r);
+  return 1 - exp(-10 * t);
 }
 
-double easeExponentialInOut(double r) {
-  if (r == 0. || r == 1.) {
-    return r;
+double easeExponentialInOut(double t) {
+  if (t == 0. || t == 1.) {
+    return t;
   }
 
-  if (r < 0.5) {
-    return 0.5 * exp(20 * r - 10);
+  if (t < 0.5) {
+    return 0.5 * exp(20 * t - 10);
   }
-  return 1 - 0.5 * exp(10 - 20 * r);
+  return 1 - 0.5 * exp(10 - 20 * t);
 }
 
-double easeCircularIn(double r) {
-  return 1 - sqrt(1 - r * r);
+double easeCircularIn(double t) {
+  return 1 - sqrt(1 - t * t);
 }
 
-double easeCircularOut(double r) {
-  return sqrt((2 - r) * r);
+double easeCircularOut(double t) {
+  return sqrt((2 - t) * t);
 }
 
-double easeCircularInOut(double r) {
-  if (r < 0.5) {
-    return 0.5 * (1 - sqrt(1 - 4 * r * r));
+double easeCircularInOut(double t) {
+  if (t < 0.5) {
+    return 0.5 * (1 - sqrt(1 - 4 * t * t));
   }
-  return 0.5 * (sqrt((3 - 2 * r) * (2 * r - 1)) + 1);
+  return 0.5 * (sqrt((3 - 2 * t) * (2 * t - 1)) + 1);
 }
 
-double easeBackIn(double r) {
-  return r * r * r - r * sin(r * PI);
+double easeBackIn(double t) {
+  return t * t * t - t * sin(t * PI);
 }
 
-double easeBackOut(double r) {
-  double p = 1.0 - r;
+double easeBackOut(double t) {
+  double p = 1.0 - t;
   return 1 - (p * p * p - p * sin(p * PI));
 }
 
-double easeBackInOut(double r) {
+double easeBackInOut(double t) {
   double p;
-  if (r < 0.5) {
-    p = 2 * r;
-    return 0.5 * (p * p * p - p * sin(r * PI));
+  if (t < 0.5) {
+    p = 2 * t;
+    return 0.5 * (p * p * p - p * sin(p * PI));
   }
 
-  p = 1 - (2 * r - 1);
+  p = 1 - (2 * t - 1);
   return 0.5 * (1 - (p * p * p - p * sin(p * PI))) + 0.5;
 }
 
-double easeElasticIn(double r) {
-  return sin(13 * PI / 2 * r) * exp(10 * (r - 1));
+double easeElasticIn(double t) {
+  return sin(13 * PI / 2 * t) * exp(10 * (t - 1));
 }
 
-double easeElasticOut(double r) {
-  return sin(-13 * PI / 2 * (r + 1)) * exp(-10 * r) + 1;
+double easeElasticOut(double t) {
+  return sin(-13 * PI / 2 * (t + 1)) * exp(-10 * t) + 1;
 }
 
-double easeElasticInOut(double r) {
-  if (r < 0.5) {
-    return 0.5 * sin(13 * PI / 2 * (2 * r)) * exp(10 * ((2 * r) - 1));
+double easeElasticInOut(double t) {
+  if (t < 0.5) {
+    return 0.5 * sin(13 * PI / 2 * (2 * t)) * exp(10 * ((2 * t) - 1));
   }
-  return 0.5 * (sin(-13 * PI / 2 * ((2 * r - 1) + 1)) * exp(-10 * (2 * r - 1)) + 2);
+  return 0.5 * (sin(-13 * PI / 2 * ((2 * t - 1) + 1)) * exp(-10 * (2 * t - 1)) + 2);
 }
 
-double easeBounceOut(double r) {
-  if (r < 4.0 / 11.0) {
-    return 121.0 * r * r / 16.0;
-  } else if (r < 8.0 / 11.0) {
-    return (363.0 / 40.0 * r * r) - (99.0 / 10.0 * r) + 17.0 / 5.0;
-  } else if (r < 9.0 / 10.0) {
-    return (4356.0 / 361.0 * r * r) - (35442.0 / 1805.0 * r) + 16061.0 / 1805.0;
+double easeBounceOut(double t) {
+  if (t < 4.0 / 11.0) {
+    return 121.0 * t * t / 16.0;
+  } else if (t < 8.0 / 11.0) {
+    return (363.0 / 40.0 * t * t) - (99.0 / 10.0 * t) + 17.0 / 5.0;
+  } else if (t < 9.0 / 10.0) {
+    return (4356.0 / 361.0 * t * t) - (35442.0 / 1805.0 * t) + 16061.0 / 1805.0;
   }
-  return (54.0 / 5.0 * r * r) - (513.0 / 25.0 * r) + 268.0 / 25.0;
+  return (54.0 / 5.0 * t * t) - (513.0 / 25.0 * t) + 268.0 / 25.0;
 }
 
-double easeBounceIn(double r) {
-  return 1 - easeBounceOut(1 - r);
+double easeBounceIn(double t) {
+  return 1 - easeBounceOut(1 - t);
 }
 
-double easeBounceInOut(double r) {
-  if (r < 0.5) {
-    return 0.5 * easeBounceIn (2 * r);
+double easeBounceInOut(double t) {
+  if (t < 0.5) {
+    return 0.5 * easeBounceIn (2 * t);
   }
-  return 0.5 * easeBounceOut(2 * r - 1) + 0.5;
+  return 0.5 * easeBounceOut(2 * t - 1) + 0.5;
+}
+
+double oscillate(double t) {
+  return t; // fake func
 }
 
 double (*EASING[28])(double) = {
@@ -288,6 +282,18 @@ void init_servo(Servo * self) {
   self->curve = easeLinear;
 }
 
+double calc_position(Servo * self, uint16_t step) {
+  double t = (double)step / (double)self->span;
+  double width;
+  if (self->curve == oscillate) {
+    width = self->start + self->amplitude * sin(t * 2 * PI + self->phase * PI / 180);
+  } else {
+    double r = self->curve(t);
+    width = self->start + self->end * r - self->start * r;
+  }
+  return width;
+}
+
 void update(uint8_t index) {
   Servo * self = servos + index;
   chMtxLock(mtx_servos + index);
@@ -306,6 +312,12 @@ void transmit(void) {
   uint16_t width;
   for (uint8_t i=0; i<LEN; i++) {
     width = (uint16_t)(servos[i].position + 0.5);
+    if (width > WIDTH_MAX) {
+      width = WIDTH_MAX;
+    }
+    if (width < WIDTH_MIN) {
+      width = WIDTH_MIN;
+    }
     buff_i2c[i * 4 + 3] = width & 0xff;
     buff_i2c[i * 4 + 4] = width >> 8;
   }
@@ -428,23 +440,46 @@ static THD_FUNCTION(Pong, arg) {
     buff[3] = 0x00; // success
     uint8_t cursor = 4;
 
-    for (uint8_t i = 4; i < p[0]; i += 6) {
-      uint8_t index = *(uint8_t *)(p + i) % LEN;
-      uint16_t width = *(uint16_t *)(p + i + 1);
-      uint16_t span = *(uint16_t *)(p + i + 3);
-      uint8_t curve = *(uint8_t *)(p + i + 5);
+    if (p[3] == 0x01) { // curve
+      for (uint8_t i = 4; i < p[0]; i += 6) {
+        uint8_t index = *(uint8_t *)(p + i) % LEN;
+        uint16_t width = *(uint16_t *)(p + i + 1);
+        uint16_t span = *(uint16_t *)(p + i + 3);
+        uint8_t curve = *(uint8_t *)(p + i + 5);
 
-      chMtxLock(mtx_servos + index);
-      *(uint16_t *)(buff + cursor) = servos[index].step;
-      servos[index].start = servos[index].position;
-      servos[index].end = width;
-      servos[index].span = span;
-      servos[index].curve = EASING[curve];
-      chMtxUnlock(mtx_servos + index);
-      cursor += 2;
+        *(uint16_t *)(buff + cursor) = servos[index].step;
+        cursor += 2;
+        chMtxLock(mtx_servos + index);
+        servos[index].start = servos[index].position;
+        servos[index].end = width;
+        servos[index].span = span;
+        servos[index].curve = EASING[curve];
+        chMtxUnlock(mtx_servos + index);
+      }
+
+      buff[0] = cursor - 1;
     }
 
-    buff[0] = cursor - 1;
+    if (p[3] == 0x02) { // oscillate
+      for (uint8_t i = 4; i < p[0]; i += 7) {
+        uint8_t index = *(uint8_t *)(p + i) % LEN;
+        int16_t amplitude = *(int16_t *)(p + i + 1);
+        uint16_t span = *(uint16_t *)(p + i + 3);
+        int16_t phase = *(int16_t *)(p + i + 5);
+
+        *(uint16_t *)(buff + cursor) = servos[index].amplitude;
+        cursor += 2;
+        chMtxLock(mtx_servos + index);
+        servos[index].phase = phase;
+        servos[index].amplitude = amplitude;
+        servos[index].start = servos[index].position - amplitude * sin(phase * PI / 180.);
+        servos[index].span = span;
+        servos[index].curve = oscillate;
+        chMtxUnlock(mtx_servos + index);
+      }
+
+      buff[0] = cursor - 1;
+    }
 
     chMtxLock(&mtx_sd1);
     sdWrite(&SD1, buff, buff[0] + 1);

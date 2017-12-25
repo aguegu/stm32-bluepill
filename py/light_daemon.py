@@ -10,6 +10,10 @@ def move(index, width, span, curve=0):
     return pack('<BHHB', index, width, span, curve)
 
 
+def oscillate(index, amplitude, span, phase=0):
+    return pack('<BhHh', index, amplitude, span, phase)
+
+
 def toHex(bs):
     return ' '.join('0x%02x' % c for c in bs)
 
@@ -143,18 +147,30 @@ if __name__ == '__main__':
 
         func = bytes([0x01])
 
-        # t.write(func + move(0, 306, 100))
+        # t.write(func + move(0, 374, 1))
+        # time.sleep(0.01)
 
-        curve = CURVES.index('ElasticInOut')
+        curve = CURVES.index('BounceOut')
         s = 2
 
+        # t.write(bytes([0x02]) + oscillate(0, 30, s*100))
+        # time.sleep(s)
+
+        # t.write(bytes([0x02]) + oscillate(0, 60, s*100) + oscillate(1, -60, s*100))
+        # time.sleep(s)
+
         while True:
-            payload = [move(i, 170, s * 100, curve) for i in range(16)]
-            t.write(func + reduce(lambda c, x: c + x, payload, bytearray()))
+            # payload = [move(i, 170, s * 100, curve) for i in range(16)]
+            # t.write(func + reduce(lambda c, x: c + x, payload, bytearray()))
+            # time.sleep(s)
+            # payload = [move(i, 442, s * 100, curve) for i in range(16)]
+            # t.write(func + reduce(lambda c, x: c + x, payload, bytearray()))
+            # time.sleep(s)
+            payload = [oscillate(i, i * 17, s * 100) for i in range(16)]
+            t.write(reduce(lambda c, x: c + x, payload, bytearray.fromhex('02')))
             time.sleep(s)
-            payload = [move(i, 442, s * 100, curve) for i in range(16)]
-            t.write(func + reduce(lambda c, x: c + x, payload, bytearray()))
-            time.sleep(s)
+            # break
+
 
         # t.write(func + move(0, 450, 100) + move(15, 150, 100))
         # time.sleep(1)

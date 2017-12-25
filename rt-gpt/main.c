@@ -62,7 +62,6 @@ static const I2CConfig i2cfg1 = {
 };
 
 static binary_semaphore_t i2c_bsem;
-static time_measurement_t t_16, t_idle;
 
 typedef struct {
   double position;
@@ -332,9 +331,6 @@ static THD_FUNCTION(ServoDriver, arg) {
   i2cMasterTransmit(&I2CD1, ADDRESS, configs + 4, 2, NULL, 0);
   i2cReleaseBus(&I2CD1);
 
-  chTMObjectInit(&t_16);
-  chTMObjectInit(&t_idle);
-
   for (uint8_t i=0; i<LEN; i++) {
     init_servo(servos+i);
   }
@@ -343,7 +339,6 @@ static THD_FUNCTION(ServoDriver, arg) {
   transmit();
 
   while (true) {
-    chTMStartMeasurementX(&t_16);
     bool isUpdated = false;
     for (uint8_t i=0; i<LEN; i++) {
       if (servos[i].span) {
@@ -354,51 +349,9 @@ static THD_FUNCTION(ServoDriver, arg) {
     if (isUpdated) {
       transmit();
     }
-    chTMStopMeasurementX(&t_16);
-
-    chTMStartMeasurementX(&t_idle);
     chBSemWait(&i2c_bsem);
-    chTMStopMeasurementX(&t_idle);
   }
 }
-
-// static THD_WORKING_AREA(waBenchmark, 512);
-// static THD_FUNCTION(Benchmark, arg) {
-//   (void)arg;
-//   chRegSetThreadName("Benchmark");
-//
-//
-//   while (true) {
-//     chTMObjectInit(&t_16);
-//     chTMObjectInit(&t_idle);
-//
-//     for (uint8_t i=0; i<LEN; i++) {
-//       servos[i].start = servos[i].position;
-//       servos[i].end = 450;
-//       servos[i].step = 0;
-//       servos[i].span = 100;
-//     }
-//     chprintf(bss, "to 450, start: %d/%d\r\n", servos[0].step, servos[0].span);
-//     chThdSleepMilliseconds(1000);
-//     chprintf(bss, "to 450, end: %d/%d\r\n", servos[0].step, servos[0].span);
-//
-//     for (uint8_t i=0; i<LEN; i++) {
-//       servos[i].start = servos[i].position;
-//       servos[i].end = 150;
-//       servos[i].step = 0;
-//       servos[i].span = 200;
-//     }
-//     chprintf(bss, "to 150, start: %d/%d\r\n", servos[0].step, servos[0].span);
-//     chThdSleepMilliseconds(2000);
-//     chprintf(bss, "to 150, end: %d/%d\r\n", servos[0].step, servos[0].span);
-//
-//     // chThdSleepMilliseconds(1000);
-//     chprintf(bss, "t_16: %d: %d, %d, %d\r\n", t_16.n, t_16.last, t_16.best, t_16.worst);
-//     chprintf(bss, "t_idle: %d: %d, %d, %d\r\n", t_idle.n, t_idle.last, t_idle.best, t_idle.worst);
-//     //
-//
-//   }
-// }
 
 static void gpt1cb(GPTDriver *gptp)
 {
@@ -411,7 +364,7 @@ static void gpt1cb(GPTDriver *gptp)
 
 static GPTConfig gpt1cfg =
 {
-  1000,    /* timer clock.*/
+  10000,    /* timer clock.*/
   gpt1cb,        /* Timer callback.*/
   0,
   0
@@ -529,11 +482,9 @@ int main (void) {
     chThdCreateStatic(waServoDriver, sizeof(waServoDriver), (NORMALPRIO + 1), ServoDriver, NULL);
     chThdCreateStatic(waPing, sizeof(waPing), (NORMALPRIO), Ping, NULL);
     chThdCreateStatic(waPong, sizeof(waPong), (NORMALPRIO), Pong, NULL);
-    // chThdCreateStatic(waBenchmark, sizeof(waBenchmark), (NORMALPRIO), Benchmark, NULL);
     gptStart(&GPTD1, &gpt1cfg);
 
-    gptStartContinuous(&GPTD1, 9);  // 1000 / 50 = 200Hz
-    // chTMStartMeasurementX(&t_16);
+    gptStartContinuous(&GPTD1, 98);  // 1000 / 50 = 200Hz
 
     while(1) {
       chThdSleepSeconds(1);

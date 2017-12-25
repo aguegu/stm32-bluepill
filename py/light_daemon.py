@@ -3,6 +3,7 @@ from serial.threaded import Protocol
 from struct import unpack, pack
 import time
 import threading
+from functools import reduce
 
 
 def move(index, width, span, curve=0):
@@ -12,6 +13,37 @@ def move(index, width, span, curve=0):
 def toHex(bs):
     return ' '.join('0x%02x' % c for c in bs)
 
+
+CURVES = [
+    'Linear',
+    'SineIn',
+    'SineOut',
+    'SineInOut',
+    'QuadIn',
+    'QuadOut',
+    'QuadInOut',
+    'CubicIn',
+    'CubicOut',
+    'CubicInOut',
+    'QuarticIn',
+    'QuarticOut',
+    'QuarticInOut',
+    'ExponentialIn',
+    'ExponentialOut',
+    'ExponentialInOut',
+    'CircularIn',
+    'CircularOut',
+    'CircularInOut',
+    'BackIn',
+    'BackOut',
+    'BackInOut',
+    'ElasticIn',
+    'ElasticOut',
+    'ElasticInOut',
+    'BounceIn',
+    'BounceOut',
+    'BounceInOut',
+]
 
 class RecvProtocol(Protocol):
     def __init__(self):
@@ -111,31 +143,21 @@ if __name__ == '__main__':
 
         func = bytes([0x01])
 
-        t.write(func + move(0, 306, 100))
-        t.write(func + move(1, 306, 100))
-        t.write(func + move(2, 306, 100))
-        t.write(func + move(3, 306, 100))
+        # t.write(func + move(0, 306, 100))
 
-        t.write(func + move(4, 102, 100))
-        t.write(func + move(5, 102, 100))
-        t.write(func + move(6, 102, 100))
-        t.write(func + move(7, 102, 100))
+        curve = CURVES.index('ElasticInOut')
+        s = 2
 
-        t.write(func + move(8, 510, 100))
-        t.write(func + move(9, 510, 100))
-        t.write(func + move(10, 510, 100))
-        t.write(func + move(11, 510, 100))
-
-        t.write(func + move(12, 500, 100))
-        t.write(func + move(13, 500, 100))
-        t.write(func + move(14, 500, 100))
-        t.write(func + move(15, 500, 100))
-
-        # while True:
-
+        while True:
+            payload = [move(i, 170, s * 100, curve) for i in range(16)]
+            t.write(func + reduce(lambda c, x: c + x, payload, bytearray()))
+            time.sleep(s)
+            payload = [move(i, 442, s * 100, curve) for i in range(16)]
+            t.write(func + reduce(lambda c, x: c + x, payload, bytearray()))
+            time.sleep(s)
 
         # t.write(func + move(0, 450, 100) + move(15, 150, 100))
-        time.sleep(1)
+        # time.sleep(1)
     except (KeyboardInterrupt, SystemExit):
         print('exit')
     finally:

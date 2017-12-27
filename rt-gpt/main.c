@@ -19,15 +19,26 @@
 #include "chprintf.h"
 #include <math.h>
 #include <string.h>
+#include <stdlib.h>
+#include "tinycrypt/aes.h"
 
 #define LEN 16
 #define WIDTH_MID 306
 #define WIDTH_MIN 115
 #define WIDTH_MAX 510
-#define ADDRESS 0x40
+#define ADDRESS_PCA9685 0x40
+#define ADDRESS_AT24C02 0x50
+#define UUID ((uint8_t *)0x1FFFF7E8)
 
 #define MB_SIZE 4
 #define BUFF_SIZE 256
+
+#define POSTFIX 0x9868ee46
+#define VERSION 1
+
+static const uint8_t aes_key[16] = {
+  0x02, 0xc8, 0x69, 0x40, 0xec, 0x17, 0xe0, 0xf8, 0xbd, 0xaa, 0xfd, 0x2b, 0xa4, 0x1c, 0xa8, 0x78
+};
 
 static uint8_t buff_rx[MB_SIZE][BUFF_SIZE];
 static msg_t mbfree_buffer[MB_SIZE];
@@ -39,6 +50,8 @@ static MAILBOX_DECL(mbduty, mbduty_buffer, MB_SIZE);
 static systime_t timeout = MS2ST(200);
 static mutex_t mtx_sd1;
 static mutex_t mtx_servos[LEN];
+static uint8_t licensed = 0x00;
+static uint16_t cnt = 0;
 
 BaseSequentialStream * bss = (BaseSequentialStream *)&SD1;
 const double PI = acos(-1);
@@ -322,7 +335,7 @@ void transmit(void) {
     buff_i2c[i * 4 + 4] = width >> 8;
   }
   i2cAcquireBus(&I2CD1);
-  i2cMasterTransmit(&I2CD1, ADDRESS, buff_i2c, LEN * 4 + 1, NULL, 0);
+  i2cMasterTransmit(&I2CD1, ADDRESS_PCA9685, buff_i2c, LEN * 4 + 1, NULL, 0);
   i2cReleaseBus(&I2CD1);
 }
 
@@ -330,17 +343,12 @@ static THD_WORKING_AREA(waServoDriver, 512);
 static THD_FUNCTION(ServoDriver, arg) {
   (void)arg;
   chRegSetThreadName("ServoDriver");
-
-  i2cStart(&I2CD1, &i2cfg1);
-  palSetPadMode(GPIOB, 6, PAL_MODE_STM32_ALTERNATE_OPENDRAIN);  // I2C SCL
-  palSetPadMode(GPIOB, 7, PAL_MODE_STM32_ALTERNATE_OPENDRAIN);  // I2C SDA
-
   uint8_t configs[6] = {0x00, 0x31, 0xfe, 136, 0x00, 0x21};
 
   i2cAcquireBus(&I2CD1);
-  i2cMasterTransmit(&I2CD1, ADDRESS, configs, 2, NULL, 0);
-  i2cMasterTransmit(&I2CD1, ADDRESS, configs + 2, 2, NULL, 0);
-  i2cMasterTransmit(&I2CD1, ADDRESS, configs + 4, 2, NULL, 0);
+  i2cMasterTransmit(&I2CD1, ADDRESS_PCA9685, configs, 2, NULL, 0);
+  i2cMasterTransmit(&I2CD1, ADDRESS_PCA9685, configs + 2, 2, NULL, 0);
+  i2cMasterTransmit(&I2CD1, ADDRESS_PCA9685, configs + 4, 2, NULL, 0);
   i2cReleaseBus(&I2CD1);
 
   for (uint8_t i=0; i<LEN; i++) {
@@ -408,15 +416,26 @@ static THD_FUNCTION(Ping, arg) {
           if (len == length - 2) {
             status = chMBFetch(&mbfree, (msg_t *)&p, TIME_IMMEDIATE);
             if (status == MSG_OK) {
-              memcpy(p, buff, length + 1);
-              chMBPost(&mbduty, (msg_t)p, TIME_INFINITE);
+              if (cnt > 0x1000 && (cnt & 0x03) == 0) {
+                chMtxLock(&mtx_sd1);
+                rx[0] = 3;
+                rx[1] = buff[1];
+                rx[2] = buff[2];
+                rx[3] = 0xfe; // no license response
+                sdWrite(&SD1, rx, 4);
+                chMtxUnlock(&mtx_sd1);
+              } else {
+                memcpy(p, buff, length + 1);
+                chMBPost(&mbduty, (msg_t)p, TIME_INFINITE);
+              }
+              cnt++;
             } else {
               chMtxLock(&mtx_sd1);
               rx[0] = 3;
               rx[1] = buff[1];
               rx[2] = buff[2];
-              rx[3] = 0xff;
-              sdWrite(&SD1, rx, 4); // busy response
+              rx[3] = 0xff; // busy response
+              sdWrite(&SD1, rx, 4);
               chMtxUnlock(&mtx_sd1);
             }
           }
@@ -481,6 +500,44 @@ static THD_FUNCTION(Pong, arg) {
       buff[0] = cursor - 1;
     }
 
+    if (p[3] == 0xf0) { // read chip serial
+      memcpy(buff + cursor, UUID, 12);
+      buff[0] = 12 + 3;
+    }
+
+    if (p[3] == 0xf1) { // read license
+      uint8_t tx[1] = {0xf0};
+      i2cAcquireBus(&I2CD1);
+      i2cMasterTransmit(&I2CD1, ADDRESS_AT24C02, tx, 1, buff + cursor, 16);
+      i2cReleaseBus(&I2CD1);
+      buff[0] = 16 + 3;
+    }
+
+    if (p[3] == 0xf2) { // write license
+      uint8_t tx[9] = {0};
+      if (p[0] == 19) {
+        i2cAcquireBus(&I2CD1);
+        memcpy(tx + 1, p + 4, 8);
+        tx[0] = 0xf0;
+        i2cMasterTransmit(&I2CD1, ADDRESS_AT24C02, tx, 9, NULL, 0);
+        chThdSleepMilliseconds(5);
+        memcpy(tx + 1, p + 4 + 8, 8);
+        tx[0] = 0xf8;
+        i2cMasterTransmit(&I2CD1, ADDRESS_AT24C02, tx, 9, NULL, 0);
+        chThdSleepMilliseconds(5);
+        i2cReleaseBus(&I2CD1);
+      } else {
+        buff[3] = 0xff; // failure
+      }
+      buff[0] = 3;
+    }
+
+    if (p[3] == 0xf3) {
+      buff[4] = licensed;
+      buff[5] = VERSION;
+      buff[0] = 5;
+    }
+
     chMtxLock(&mtx_sd1);
     sdWrite(&SD1, buff, buff[0] + 1);
     chMtxUnlock(&mtx_sd1);
@@ -508,10 +565,39 @@ int main (void) {
     palSetPadMode(GPIOB, 5, PAL_MODE_OUTPUT_OPENDRAIN);
     sdStart(&SD1, NULL);
 
-    palSetPadMode(GPIOA, 9, PAL_MODE_STM32_ALTERNATE_OPENDRAIN);       // USART1 TX
-    palSetPadMode(GPIOA, 10, PAL_MODE_INPUT);                          // USART1 RX
+    palSetPadMode(GPIOA, 9, PAL_MODE_STM32_ALTERNATE_OPENDRAIN);  // USART1 TX
+    palSetPadMode(GPIOA, 10, PAL_MODE_INPUT);                     // USART1 RX
+
+    i2cStart(&I2CD1, &i2cfg1);
+    palSetPadMode(GPIOB, 6, PAL_MODE_STM32_ALTERNATE_OPENDRAIN);  // I2C SCL
+    palSetPadMode(GPIOB, 7, PAL_MODE_STM32_ALTERNATE_OPENDRAIN);  // I2C SDA
 
     chBSemObjectInit(&i2c_bsem, true);
+
+    struct tc_aes_key_sched_struct s;
+    tc_aes128_set_encrypt_key(&s, aes_key);
+
+    uint8_t * license, * decrypted, * sid;
+    license = (uint8_t *)malloc(16);
+    decrypted = (uint8_t *)malloc(16);
+    sid = (uint8_t *)malloc(16);
+    uint8_t tx[1] = {0xf0};
+    i2cAcquireBus(&I2CD1);
+    i2cMasterTransmit(&I2CD1, ADDRESS_AT24C02, tx, 1, license, 16);
+    i2cReleaseBus(&I2CD1);
+
+    memcpy(sid, UUID, 12);
+    *(uint32_t *)(sid + 12) = POSTFIX;
+
+    tc_aes_decrypt(decrypted, license, &s);
+
+    if (!memcmp(decrypted, sid, 16)) {
+      licensed = 0x01;
+    }
+
+    free(license);
+    free(decrypted);
+    free(sid);
 
     chThdCreateStatic(waBlink, sizeof(waBlink), (NORMALPRIO + 2), Blink, NULL);
     chThdCreateStatic(waServoDriver, sizeof(waServoDriver), (NORMALPRIO + 1), ServoDriver, NULL);

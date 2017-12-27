@@ -60,7 +60,7 @@ endif
 # Stack size to be allocated to the Cortex-M process stack. This stack is
 # the stack used by the main() thread.
 ifeq ($(USE_PROCESS_STACKSIZE),)
-  USE_PROCESS_STACKSIZE = 0x100
+  USE_PROCESS_STACKSIZE = 0x400
 endif
 
 # Stack size to the allocated to the Cortex-M main/exceptions stack. This
@@ -114,7 +114,12 @@ CSRC = $(STARTUPSRC) \
        $(PLATFORMSRC) \
        $(BOARDSRC) \
        $(TESTSRC) \
+			 $(CHIBIOS)/os/hal/lib/streams/memstreams.c \
 			 $(CHIBIOS)/os/hal/lib/streams/chprintf.c \
+			 $(CHIBIOS)/os/various/syscalls.c \
+			 ../tinycrypt/lib/source/aes_encrypt.c \
+			 ../tinycrypt/lib/source/aes_decrypt.c \
+			 ../tinycrypt/lib/source/utils.c \
        main.c
 
 # C++ sources that can be compiled in ARM or THUMB mode depending on the global
@@ -149,6 +154,7 @@ INCDIR = $(CHIBIOS)/os/license \
          $(STARTUPINC) $(KERNINC) $(PORTINC) $(OSALINC) \
          $(HALINC) $(PLATFORMINC) $(BOARDINC) $(TESTINC) \
 				 $(CHIBIOS)/os/hal/lib/streams \
+				 ../tinycrypt/lib/include \
          $(CHIBIOS)/os/various
 
 #

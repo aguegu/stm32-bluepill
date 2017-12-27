@@ -3,7 +3,9 @@ from serial.threaded import Protocol
 from struct import unpack, pack
 import time
 import threading
+import queue
 from functools import reduce
+from Crypto.Cipher import AES
 
 
 def move(index, width, span, curve=0):
@@ -17,6 +19,12 @@ def oscillate(index, amplitude, span, phase=0):
 def toHex(bs):
     return ' '.join('0x%02x' % c for c in bs)
 
+
+SECRET = bytes([0x02, 0xc8, 0x69, 0x40, 0xec, 0x17, 0xe0, 0xf8, 0xbd, 0xaa, 0xfd, 0x2b, 0xa4, 0x1c, 0xa8, 0x78])
+POSTFIX = [
+    0x00000000,
+    0x9868ee46
+]
 
 CURVES = [
     'Linear',
@@ -48,6 +56,7 @@ CURVES = [
     'BounceOut',
     'BounceInOut',
 ]
+
 
 class RecvProtocol(Protocol):
     def __init__(self):
@@ -87,6 +96,9 @@ class RecvProtocol(Protocol):
         if packet[3]:
             print(packet[3])
         # print('rx:', toHex(packet), datetime.now())
+        # with self.transport.cache_lock:
+        #     self.transport.cache = bytes(packet)
+        self.transport.q.put(bytes(packet))
         print('rx:', toHex(packet))
 
 
@@ -99,23 +111,44 @@ class BusDaemon(threading.Thread):
         self._lock = threading.Lock()
         self._connected = threading.Event()
         self.uid = 0
+        self.cache = bytes()
+        self.uid_mark = None
+        # self._sync = threading.Event()
+        self._package_received = threading.Event()
+        self._package_synced = threading.Event()
+
+        # self.rx = bytes()
+        # self.cache_lock = threading.Lock()
+        # self.packet_received = threading.Event()
+        self.q = queue.Queue()
 
     def stop(self):
         self.alive = False
 
     def run(self):
-        self.tty.timeout = 1
+        self.tty.timeout = 0.1
         self._connected.wait()
 
         error = None
-        while self.alive and self.tty.is_open:
+        while (self.alive) and self.tty.is_open:
+            try:
+                while True:
+                    self.cache = self.q.get_nowait()
+                    if self.uid_mark is not None and self.cache[1] == self.uid_mark:
+                        self._package_received.set()
+                        self._package_synced.wait()
+                        self._package_synced.clear()
+                    self.q.task_done()
+            except queue.Empty:
+                pass
+
             try:
                 data = self.tty.read(self.tty.in_waiting or 1)
             except serial.SerialException as e:
                 error = e
                 break
             else:
-                if data:
+                if data: # bytes([0]), b'0' is True too
                     self.receiver.data_received(data)
 
         self.alive = False
@@ -128,14 +161,30 @@ class BusDaemon(threading.Thread):
         self.alive = True
         self._connected.set()
 
-    def write(self, data):
+    def write(self, data, sync=False):
+        tx = bytes([len(data) + 2, self.uid, 0xff - self.uid]) + data
+        # print('tx:', toHex(tx), datetime.now())
+        print('tx:', toHex(tx))
         with self._lock:
-            tx = bytes([len(data) + 2, self.uid, 0xff - self.uid]) + data
-            # print('tx:', toHex(tx), datetime.now())
-            print('tx:', toHex(tx))
             self.tty.write(tx)
-            self.uid += 1
-            self.uid &= 0xff
+
+        uid = self.uid
+        self.uid += 1
+        self.uid &= 0xff
+
+        if sync:
+            self.uid_mark = uid
+
+            self._package_received.wait()
+            self._package_received.clear()
+
+            rx = bytes(self.cache)
+            self.uid_mark = None
+            self._package_synced.set()
+
+            return rx
+        return uid
+
 
 curves = [
     'Linear',
@@ -199,6 +248,37 @@ def delay(millis):
     time.sleep(millis * 0.001)
 
 
+# def moveup():
+    tempo = 485
+    # home(servos)
+
+    # self.home()
+    # delay(tempo)
+    # servos[0].SetPosition(80)
+    # servos[1].SetPosition(100)
+    # delay(tempo)
+    # servos[0].SetPosition(70)
+    # servos[1].SetPosition(110)
+    # delay(tempo)
+    # servos[0].SetPosition(60)
+    # servos[1].SetPosition(120)
+    # delay(tempo)
+    # servos[0].SetPosition(50)
+    # servos[1].SetPosition(130)
+    # delay(tempo)
+    # servos[0].SetPosition(40)
+    # servos[1].SetPosition(140)
+    # delay(tempo)
+    # servos[0].SetPosition(30)
+    # servos[1].SetPosition(150)
+    # delay(tempo)
+    # servos[0].SetPosition(20)
+    # servos[1].SetPosition(160)
+    # delay(tempo)
+
+    # home(servos)
+
+
 if __name__ == '__main__':
     try:
         tty = serial.Serial('/dev/cu.SLAB_USBtoUART', 115200)
@@ -213,42 +293,21 @@ if __name__ == '__main__':
             OttoServo(t, 'YL', 0, 291),
         ]
 
-        func = bytes([0x01])
-
         # t.write(func + move(0, 374, 1))
         # time.sleep(0.01)
 
         curve = CURVES.index('BounceOut')
         s = 2
 
-        tempo = 485
-        # home(servos)
+        licensed = t.write(bytes([0xf3]), True)[-2]
+        if not licensed:
+            version = t.write(bytes([0xf3]), True)[-1]
+            sid = t.write(bytes([0xf0]), True)[4:]
+            cipher = AES.new(SECRET)
+            license = cipher.encrypt(sid + pack('<I', POSTFIX[version]))
+            t.write(bytes([0xf2]) + license, True)
+            t.write(bytes([0xf3]), True)
 
-        # self.home()
-        # delay(tempo)
-        # servos[0].SetPosition(80)
-        # servos[1].SetPosition(100)
-        # delay(tempo)
-        # servos[0].SetPosition(70)
-        # servos[1].SetPosition(110)
-        # delay(tempo)
-        # servos[0].SetPosition(60)
-        # servos[1].SetPosition(120)
-        # delay(tempo)
-        # servos[0].SetPosition(50)
-        # servos[1].SetPosition(130)
-        # delay(tempo)
-        # servos[0].SetPosition(40)
-        # servos[1].SetPosition(140)
-        # delay(tempo)
-        # servos[0].SetPosition(30)
-        # servos[1].SetPosition(150)
-        # delay(tempo)
-        # servos[0].SetPosition(20)
-        # servos[1].SetPosition(160)
-        # delay(tempo)
-
-        # home(servos)
         # time.sleep(0.01)
 
         # t.write(bytes([0x02]) + oscillate(0, 30, s*100))
@@ -260,14 +319,20 @@ if __name__ == '__main__':
         while True:
             # payload = [move(i, 170, s * 100, curve) for i in range(16)]
             # t.write(func + reduce(lambda c, x: c + x, payload, bytearray()))
-            # time.sleep(s)
+            #
             # payload = [move(i, 442, s * 100, curve) for i in range(16)]
             # t.write(func + reduce(lambda c, x: c + x, payload, bytearray()))
+            #
+            # payload = [oscillate(i, i * 17, s * 100) for i in range(16)]
+            # t.write(reduce(lambda c, x: c + x, payload, bytearray.fromhex('02')))
+
+            # rx = t.write(bytes([0xf1]), True)
+
+            # print(uid)
+            # t.write(bytes([0xf2]) + bytes([0xbe] * 16), True)
+            # t.write(bytes([0xf1]))
             # time.sleep(s)
-            payload = [oscillate(i, i * 17, s * 100) for i in range(16)]
-            t.write(reduce(lambda c, x: c + x, payload, bytearray.fromhex('02')))
-            time.sleep(s)
-            # break
+            break
 
 
         # t.write(func + move(0, 450, 100) + move(15, 150, 100))

@@ -29,6 +29,7 @@
 #define ADDRESS_PCA9685 0x40
 #define ADDRESS_AT24C02 0x50
 #define UUID ((uint8_t *)0x1FFFF7E8)
+#define LICENSE_ADDRESS 0xf0
 
 #define MB_SIZE 4
 #define BUFF_SIZE 256
@@ -39,6 +40,12 @@
 static const uint8_t aes_key[16] = {
   0x02, 0xc8, 0x69, 0x40, 0xec, 0x17, 0xe0, 0xf8, 0xbd, 0xaa, 0xfd, 0x2b, 0xa4, 0x1c, 0xa8, 0x78
 };
+
+static uint16_t width_init[16] = {306};
+static uint16_t width_mid[16] = {306};
+static uint16_t width_min[16] = {102};
+static uint16_t width_max[16] = {510};
+
 
 static uint8_t buff_rx[MB_SIZE][BUFF_SIZE];
 static msg_t mbfree_buffer[MB_SIZE];
@@ -286,8 +293,8 @@ double (*EASING[28])(double) = {
   easeBounceInOut,
 };
 
-void init_servo(Servo * self) {
-  self->position = (double)WIDTH_MID;
+void init_servo(Servo * self, uint8_t index) {
+  self->position = (double)width_init[index];
   self->span = 0;
   self->step = 0;
   self->start = self->position;
@@ -352,7 +359,7 @@ static THD_FUNCTION(ServoDriver, arg) {
   i2cReleaseBus(&I2CD1);
 
   for (uint8_t i=0; i<LEN; i++) {
-    init_servo(servos+i);
+    init_servo(servos+i, i);
   }
 
   buff_i2c[0] = 0x06;
@@ -500,13 +507,32 @@ static THD_FUNCTION(Pong, arg) {
       buff[0] = cursor - 1;
     }
 
+    if (p[3] == 0x03) { // write init/mid/min/max
+      for (uint8_t i = 4; i < p[0]; i += 9) {
+        uint8_t tx[9] = {0};
+        uint8_t index = *(uint8_t *)(p + i) % LEN;
+        width_init[index] = *(uint16_t *)(p + i + 1);
+        width_mid[index] = *(uint16_t *)(p + i + 3);
+        width_min[index] = *(uint16_t *)(p + i + 5);
+        width_max[index] = *(uint16_t *)(p + i + 7);
+
+        tx[0] = index * 8;
+        memcpy(tx + 1, p + i + 1, 8);
+        i2cAcquireBus(&I2CD1);
+        i2cMasterTransmit(&I2CD1, ADDRESS_AT24C02, tx, 9, NULL, 0);
+        chThdSleepMilliseconds(5);
+        i2cReleaseBus(&I2CD1);
+      }
+      buff[0] = 3;
+    }
+
     if (p[3] == 0xf0) { // read chip serial
       memcpy(buff + cursor, UUID, 12);
       buff[0] = 12 + 3;
     }
 
     if (p[3] == 0xf1) { // read license
-      uint8_t tx[1] = {0xf0};
+      uint8_t tx[1] = {LICENSE_ADDRESS};
       i2cAcquireBus(&I2CD1);
       i2cMasterTransmit(&I2CD1, ADDRESS_AT24C02, tx, 1, buff + cursor, 16);
       i2cReleaseBus(&I2CD1);
@@ -521,13 +547,15 @@ static THD_FUNCTION(Pong, arg) {
           sum += p[i];
         }
         if (sum == p[20]) {
-          i2cAcquireBus(&I2CD1);
           memcpy(tx + 1, p + 4, 8);
-          tx[0] = 0xf0;
+          tx[0] = LICENSE_ADDRESS;
+          i2cAcquireBus(&I2CD1);
           i2cMasterTransmit(&I2CD1, ADDRESS_AT24C02, tx, 9, NULL, 0);
           chThdSleepMilliseconds(5);
+          i2cReleaseBus(&I2CD1);
           memcpy(tx + 1, p + 4 + 8, 8);
-          tx[0] = 0xf8;
+          tx[0] = LICENSE_ADDRESS + 8;
+          i2cAcquireBus(&I2CD1);
           i2cMasterTransmit(&I2CD1, ADDRESS_AT24C02, tx, 9, NULL, 0);
           chThdSleepMilliseconds(5);
           i2cReleaseBus(&I2CD1);
@@ -540,7 +568,7 @@ static THD_FUNCTION(Pong, arg) {
       buff[0] = 3;
     }
 
-    if (p[3] == 0xf3) {
+    if (p[3] == 0xf3) { // read licensed and version
       buff[4] = licensed;
       buff[5] = VERSION;
       buff[0] = 5;
@@ -582,6 +610,22 @@ int main (void) {
 
     chBSemObjectInit(&i2c_bsem, true);
 
+    uint8_t tx[1] = {0};
+
+    //
+    uint8_t *rx;
+    rx = (uint8_t *)malloc(8 * LEN);
+    i2cMasterTransmit(&I2CD1, ADDRESS_AT24C02, tx, 1, rx, 8 * LEN);
+    for (uint8_t i=0; i<LEN; i++) {
+      uint8_t offset = i * 8;
+      width_init[i] = *(uint16_t *)(rx + offset);
+      width_mid[i] = *(uint16_t *)(rx + offset + 2);
+      width_min[i] = *(uint16_t *)(rx + offset + 4);
+      width_max[i] = *(uint16_t *)(rx + offset + 6);
+    }
+    free(rx);
+
+    // license verification
     struct tc_aes_key_sched_struct s;
     tc_aes128_set_encrypt_key(&s, aes_key);
 
@@ -589,7 +633,8 @@ int main (void) {
     license = (uint8_t *)malloc(16);
     decrypted = (uint8_t *)malloc(16);
     sid = (uint8_t *)malloc(16);
-    uint8_t tx[1] = {0xf0};
+
+    tx[0] = LICENSE_ADDRESS;
     i2cAcquireBus(&I2CD1);
     i2cMasterTransmit(&I2CD1, ADDRESS_AT24C02, tx, 1, license, 16);
     i2cReleaseBus(&I2CD1);
@@ -607,6 +652,8 @@ int main (void) {
     free(decrypted);
     free(sid);
 
+
+    // start routine
     chThdCreateStatic(waBlink, sizeof(waBlink), (NORMALPRIO + 2), Blink, NULL);
     chThdCreateStatic(waServoDriver, sizeof(waServoDriver), (NORMALPRIO + 1), ServoDriver, NULL);
     chThdCreateStatic(waPing, sizeof(waPing), (NORMALPRIO), Ping, NULL);

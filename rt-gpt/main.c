@@ -515,17 +515,25 @@ static THD_FUNCTION(Pong, arg) {
 
     if (p[3] == 0xf2) { // write license
       uint8_t tx[9] = {0};
-      if (p[0] == 19) {
-        i2cAcquireBus(&I2CD1);
-        memcpy(tx + 1, p + 4, 8);
-        tx[0] = 0xf0;
-        i2cMasterTransmit(&I2CD1, ADDRESS_AT24C02, tx, 9, NULL, 0);
-        chThdSleepMilliseconds(5);
-        memcpy(tx + 1, p + 4 + 8, 8);
-        tx[0] = 0xf8;
-        i2cMasterTransmit(&I2CD1, ADDRESS_AT24C02, tx, 9, NULL, 0);
-        chThdSleepMilliseconds(5);
-        i2cReleaseBus(&I2CD1);
+      if (p[0] == 20) {
+        uint8_t sum = 0;
+        for (uint8_t i=4; i<20; i++) {
+          sum += p[i];
+        }
+        if (sum == p[20]) {
+          i2cAcquireBus(&I2CD1);
+          memcpy(tx + 1, p + 4, 8);
+          tx[0] = 0xf0;
+          i2cMasterTransmit(&I2CD1, ADDRESS_AT24C02, tx, 9, NULL, 0);
+          chThdSleepMilliseconds(5);
+          memcpy(tx + 1, p + 4 + 8, 8);
+          tx[0] = 0xf8;
+          i2cMasterTransmit(&I2CD1, ADDRESS_AT24C02, tx, 9, NULL, 0);
+          chThdSleepMilliseconds(5);
+          i2cReleaseBus(&I2CD1);
+        } else {
+          buff[3] = 0xff; // failure
+        }
       } else {
         buff[3] = 0xff; // failure
       }

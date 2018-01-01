@@ -78,7 +78,7 @@ class Demo(wx.Frame):
             hbox_tuning.Add(sc_max, 0, wx.ALIGN_CENTER_VERTICAL)
             self.sc_max.append(sc_max)
 
-            btn_send = wx.Button(pnl, -1, 'Send')
+            btn_send = wx.Button(pnl, -1, 'Set')
             btn_send.Bind(wx.EVT_BUTTON, self.OnSend)
             btn_send.Enable(False)
             hbox_tuning.Add(btn_send, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALIGN_RIGHT)

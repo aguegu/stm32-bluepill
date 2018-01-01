@@ -299,16 +299,19 @@ if __name__ == '__main__':
         curve = CURVES.index('BounceOut')
         s = 2
 
-        t.write(bytes([0xf4]), True)
+        # t.write(bytes([0xf4]), True)
 
-        # licensed = t.write(bytes([0xf3]), True)[-2]
-        # if not licensed:
-        #     version = t.write(bytes([0xf3]), True)[-1]
-        #     sid = t.write(bytes([0xf0]), True)[4:]
-        #     cipher = AES.new(SECRET)
-        #     license = cipher.encrypt(sid + pack('<I', POSTFIX[version]))
-        #     t.write(bytes([0xf2]) + license + bytes([sum(license) & 0xff]), True)
-        #     t.write(bytes([0xf3]), True)
+        licensed = t.write(bytes([0xf3]), True)[-2]
+        if not licensed:
+        # if True:
+            version = t.write(bytes([0xf3]), True)[-1]
+            sid = t.write(bytes([0xf0]), True)[4:]
+            cipher = AES.new(SECRET)
+            license = cipher.encrypt(sid + pack('<I', POSTFIX[version]))
+            # license = bytes(range(16))    # fake license
+            t.write(bytes([0xf2]) + license + bytes([sum(license) & 0xff]), True)
+            time.sleep(0.1) # for reset
+            t.write(bytes([0xf3]), True)
 
         # time.sleep(0.01)
 

@@ -450,12 +450,17 @@ static THD_FUNCTION(Ping, arg) {
   }
 }
 
+void softreset(void) {
+  *(uint32_t *)(0xE000ED0CUL) = 0x05FA0000UL | (*(uint32_t *)(0xE000ED0CUL) & 0x0700) | 0x04;
+}
+
 static THD_WORKING_AREA(waPong, 1024);
 static THD_FUNCTION(Pong, arg) {
   (void)arg;
   uint8_t *p;
   chRegSetThreadName("pong");
   uint8_t buff[BUFF_SIZE];
+  uint8_t flag_reset = 0;
 
   while (true) {
     chMBFetch(&mbduty, (msg_t *)&p, TIME_INFINITE);
@@ -557,6 +562,7 @@ static THD_FUNCTION(Pong, arg) {
           i2cMasterTransmit(&I2CD1, ADDRESS_AT24C02, tx, 9, NULL, 0);
           chThdSleepMilliseconds(5);
           i2cReleaseBus(&I2CD1);
+          flag_reset = 1;
         } else {
           buff[3] = 0xff; // failure
         }
@@ -572,7 +578,8 @@ static THD_FUNCTION(Pong, arg) {
       buff[0] = 5;
     }
 
-    if (p[3] == 0xf4) { // reset
+    if (p[3] == 0xf4 && p[0] == 3) { // reset
+      flag_reset = 1;
       buff[0] = 3;
     }
 
@@ -582,9 +589,10 @@ static THD_FUNCTION(Pong, arg) {
 
     chMBPost(&mbfree, (msg_t)p, TIME_INFINITE);
 
-    if (p[3] == 0xf4) { // reset
-      chThdSleepMilliseconds(20);
-      *(uint32_t *)(0xE000ED0CUL) = 0x05FA0000UL | (*(uint32_t *)(0xE000ED0CUL) & 0x0700) | 0x04;
+    if (flag_reset) { // reset
+      chThdSleepMilliseconds(1);
+      flag_reset = 0;
+      softreset();
     }
   }
 }
@@ -606,9 +614,9 @@ int main (void) {
       chMBPost(&mbfree, (msg_t)(*(buff_rx + i)), TIME_INFINITE);
 
     palSetPadMode(GPIOC, GPIOC_LED, PAL_MODE_OUTPUT_OPENDRAIN);
-    palClearPad(GPIOC, GPIOC_LED);
-    chThdSleepMilliseconds(3000);
-    palSetPad(GPIOC, GPIOC_LED);
+    // palClearPad(GPIOC, GPIOC_LED);
+    // chThdSleepMilliseconds(3000);
+    // palSetPad(GPIOC, GPIOC_LED);
 
     palSetPadMode(GPIOB, 5, PAL_MODE_OUTPUT_OPENDRAIN);
     sdStart(&SD1, NULL);
@@ -663,7 +671,6 @@ int main (void) {
     free(license);
     free(decrypted);
     free(sid);
-
 
     // start routine
     chThdCreateStatic(waBlink, sizeof(waBlink), (NORMALPRIO + 2), Blink, NULL);

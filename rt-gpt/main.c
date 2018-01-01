@@ -344,16 +344,18 @@ void transmit(void) {
   i2cReleaseBus(&I2CD1);
 }
 
+static uint8_t PCA9685_CONF[6] = {0x00, 0x31, 0xfe, 136, 0x00, 0x21};
+
 static THD_WORKING_AREA(waServoDriver, 512);
 static THD_FUNCTION(ServoDriver, arg) {
   (void)arg;
   chRegSetThreadName("ServoDriver");
-  uint8_t configs[6] = {0x00, 0x31, 0xfe, 136, 0x00, 0x21};
+
 
   i2cAcquireBus(&I2CD1);
-  i2cMasterTransmit(&I2CD1, ADDRESS_PCA9685, configs, 2, NULL, 0);
-  i2cMasterTransmit(&I2CD1, ADDRESS_PCA9685, configs + 2, 2, NULL, 0);
-  i2cMasterTransmit(&I2CD1, ADDRESS_PCA9685, configs + 4, 2, NULL, 0);
+  i2cMasterTransmit(&I2CD1, ADDRESS_PCA9685, PCA9685_CONF, 2, NULL, 0);
+  i2cMasterTransmit(&I2CD1, ADDRESS_PCA9685, PCA9685_CONF + 2, 2, NULL, 0);
+  i2cMasterTransmit(&I2CD1, ADDRESS_PCA9685, PCA9685_CONF + 4, 2, NULL, 0);
   i2cReleaseBus(&I2CD1);
 
   for (uint8_t i=0; i<LEN; i++) {
@@ -527,6 +529,17 @@ static THD_FUNCTION(Pong, arg) {
         i2cReleaseBus(&I2CD1);
       }
       buff[0] = 3;
+    }
+
+    if (p[3] == 0x04) { // read init/mid/min/max
+      for (uint8_t i = 0; i < LEN; i++) {
+        *(uint16_t *)(buff + cursor) = width_init[i];
+        *(uint16_t *)(buff + cursor + 2) = width_mid[i];
+        *(uint16_t *)(buff + cursor + 4) = width_min[i];
+        *(uint16_t *)(buff + cursor + 6) = width_max[i];
+        cursor += 8;
+      }
+      buff[0] = 8 * LEN + 3;
     }
 
     if (p[3] == 0xf0) { // read chip serial

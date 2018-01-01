@@ -16,6 +16,10 @@ def oscillate(index, amplitude, span, phase=0):
     return pack('<BhHh', index, amplitude, span, phase)
 
 
+def initialize(index, init, mid, minimum, maximum):
+    return pack('<BHHHH', index, init, mid, minimum, maximum)
+
+
 def toHex(bs):
     return ' '.join('0x%02x' % c for c in bs)
 
@@ -312,6 +316,10 @@ if __name__ == '__main__':
             t.write(bytes([0xf2]) + license + bytes([sum(license) & 0xff]), True)
             time.sleep(0.1) # for reset
             t.write(bytes([0xf3]), True)
+
+        t.write(bytes([0x04]), True)
+        # payload = [initialize(i, 306, 306, 102, 510) for i in range(16)]
+        # t.write(reduce(lambda c, x: c + x, payload, bytearray.fromhex('03')))
 
         # time.sleep(0.01)
 

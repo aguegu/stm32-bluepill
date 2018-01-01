@@ -67,8 +67,6 @@ static THD_WORKING_AREA(waBlink, 0);
 static THD_FUNCTION(Blink, arg) {
   (void)arg;
   chRegSetThreadName("blink");
-
-  palSetPadMode(GPIOC, GPIOC_LED, PAL_MODE_OUTPUT_OPENDRAIN);
   while (true) {
     palTogglePad(GPIOC, GPIOC_LED);
     chThdSleepMilliseconds(500);
@@ -574,11 +572,20 @@ static THD_FUNCTION(Pong, arg) {
       buff[0] = 5;
     }
 
+    if (p[3] == 0xf4) { // reset
+      buff[0] = 3;
+    }
+
     chMtxLock(&mtx_sd1);
     sdWrite(&SD1, buff, buff[0] + 1);
     chMtxUnlock(&mtx_sd1);
 
     chMBPost(&mbfree, (msg_t)p, TIME_INFINITE);
+
+    if (p[3] == 0xf4) { // reset
+      chThdSleepMilliseconds(20);
+      *(uint32_t *)(0xE000ED0CUL) = 0x05FA0000UL | (*(uint32_t *)(0xE000ED0CUL) & 0x0700) | 0x04;
+    }
   }
 }
 
@@ -597,6 +604,11 @@ int main (void) {
 
     for (uint8_t i = 0; i < MB_SIZE; i++)
       chMBPost(&mbfree, (msg_t)(*(buff_rx + i)), TIME_INFINITE);
+
+    palSetPadMode(GPIOC, GPIOC_LED, PAL_MODE_OUTPUT_OPENDRAIN);
+    palClearPad(GPIOC, GPIOC_LED);
+    chThdSleepMilliseconds(3000);
+    palSetPad(GPIOC, GPIOC_LED);
 
     palSetPadMode(GPIOB, 5, PAL_MODE_OUTPUT_OPENDRAIN);
     sdStart(&SD1, NULL);

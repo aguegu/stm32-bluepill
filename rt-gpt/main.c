@@ -23,9 +23,9 @@
 #include "tinycrypt/aes.h"
 
 #define LEN 16
-#define WIDTH_MID 306
-#define WIDTH_MIN 115
-#define WIDTH_MAX 510
+// #define WIDTH_MID 306
+// #define WIDTH_MIN 115
+// #define WIDTH_MAX 510
 #define ADDRESS_PCA9685 0x40
 #define ADDRESS_AT24C02 0x50
 #define UUID ((uint8_t *)0x1FFFF7E8)
@@ -330,11 +330,11 @@ void transmit(void) {
   uint16_t width;
   for (uint8_t i=0; i<LEN; i++) {
     width = (uint16_t)(servos[i].position + 0.5);
-    if (width > WIDTH_MAX) {
-      width = WIDTH_MAX;
+    if (width > width_max[i]) {
+      width = width_max[i];
     }
-    if (width < WIDTH_MIN) {
-      width = WIDTH_MIN;
+    if (width < width_min[i]) {
+      width = width_min[i];
     }
     buff_i2c[i * 4 + 3] = width & 0xff;
     buff_i2c[i * 4 + 4] = width >> 8;
@@ -350,7 +350,6 @@ static THD_WORKING_AREA(waServoDriver, 512);
 static THD_FUNCTION(ServoDriver, arg) {
   (void)arg;
   chRegSetThreadName("ServoDriver");
-
 
   i2cAcquireBus(&I2CD1);
   i2cMasterTransmit(&I2CD1, ADDRESS_PCA9685, PCA9685_CONF, 2, NULL, 0);
@@ -478,8 +477,8 @@ static THD_FUNCTION(Pong, arg) {
         uint16_t span = *(uint16_t *)(p + i + 3);
         uint8_t curve = *(uint8_t *)(p + i + 5);
 
-        *(uint16_t *)(buff + cursor) = servos[index].step;
-        cursor += 2;
+        // *(uint16_t *)(buff + cursor) = servos[index].step;
+        // cursor += 2;
         chMtxLock(mtx_servos + index);
         servos[index].start = servos[index].position;
         servos[index].end = width;
@@ -488,7 +487,8 @@ static THD_FUNCTION(Pong, arg) {
         chMtxUnlock(mtx_servos + index);
       }
 
-      buff[0] = cursor - 1;
+      // buff[0] = cursor - 1;
+      buff[0] = 3;
     }
 
     if (p[3] == 0x02) { // oscillate
@@ -498,8 +498,8 @@ static THD_FUNCTION(Pong, arg) {
         uint16_t span = *(uint16_t *)(p + i + 3);
         int16_t phase = *(int16_t *)(p + i + 5);
 
-        *(uint16_t *)(buff + cursor) = servos[index].amplitude;
-        cursor += 2;
+        // *(uint16_t *)(buff + cursor) = servos[index].amplitude;
+        // cursor += 2;
         chMtxLock(mtx_servos + index);
         servos[index].phase = phase;
         servos[index].amplitude = amplitude;
@@ -509,7 +509,8 @@ static THD_FUNCTION(Pong, arg) {
         chMtxUnlock(mtx_servos + index);
       }
 
-      buff[0] = cursor - 1;
+      // buff[0] = cursor - 1;
+      buff[0] = 3;
     }
 
     if (p[3] == 0x03) { // write init/mid/min/max

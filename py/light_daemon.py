@@ -318,10 +318,10 @@ if __name__ == '__main__':
             t.write(bytes([0xf3]), True)
 
         t.write(bytes([0x04]), True)
-        # payload = [initialize(i, 306, 306, 102, 510) for i in range(16)]
-        # t.write(reduce(lambda c, x: c + x, payload, bytearray.fromhex('03')))
+        payload = [initialize(i, 306, 306, 50, 600) for i in range(16)]
+        t.write(reduce(lambda c, x: c + x, payload, bytearray.fromhex('03')))
 
-        # time.sleep(0.01)
+        time.sleep(0.01)
 
         # t.write(bytes([0x02]) + oscillate(0, 30, s*100))
         # time.sleep(s)

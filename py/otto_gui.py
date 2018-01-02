@@ -123,7 +123,7 @@ class Demo(wx.Frame):
         for btn_send in self.btn_send:
             btn_send.Enable(isPressed)
         if isPressed:
-            self.tty = serial.Serial(self.cb_tty.GetValue(), 115200)
+            self.tty = serial.Serial(self.cb_tty.GetValue(), 115200, timeout=0.1)
         else:
             self.tty.close()
 

@@ -422,27 +422,29 @@ static THD_FUNCTION(Ping, arg) {
           if (len == length - 2) {
             status = chMBFetch(&mbfree, (msg_t *)&p, TIME_IMMEDIATE);
             if (status == MSG_OK) {
-              if (cnt > 0x1000 && (cnt & 0x03) == 0) {
-                chMtxLock(&mtx_sd1);
+              if (!licensed && cnt > 0x1000 && !(cnt & 0x03)) {
                 rx[0] = 3;
                 rx[1] = buff[1];
                 rx[2] = buff[2];
                 rx[3] = 0xfe; // no license response
+                chMtxLock(&mtx_sd1);
                 sdWrite(&SD1, rx, 4);
                 chMtxUnlock(&mtx_sd1);
+                chMBPost(&mbfree, (msg_t)p, TIME_INFINITE);
               } else {
                 memcpy(p, buff, length + 1);
                 chMBPost(&mbduty, (msg_t)p, TIME_INFINITE);
               }
               cnt++;
             } else {
-              chMtxLock(&mtx_sd1);
               rx[0] = 3;
               rx[1] = buff[1];
               rx[2] = buff[2];
               rx[3] = 0xff; // busy response
+              chMtxLock(&mtx_sd1);
               sdWrite(&SD1, rx, 4);
               chMtxUnlock(&mtx_sd1);
+              chMBPost(&mbfree, (msg_t)p, TIME_INFINITE);
             }
           }
         }

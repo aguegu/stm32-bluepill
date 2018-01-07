@@ -222,38 +222,18 @@ curves = [
 ]
 
 
-class OttoServo():
-    def __init__(self, host, name, pin, home):
-        self.host = host
-        self.name = name
-        self.pin = pin
-        self.home = home
-
-    def get_width(self, angle):
-        return round(self.home + (angle - 90) * 34.0 / 15.)
-
-    def SetPosition(self, angle, millis=0, curve=0):
-        width = self.get_width(angle)
-        self.host.write(bytes([0x01]) + move(self.pin, width, 1, curve))
-
-    def oscillate(self, amplitude, phase, millis=0):
-        # print(amplitude, phase, millis)
-        # self.host.oscillate(self.pin, amplitude, phase, millis * 0.001)
-        self.host.write(bytes([0x02]) + move(self.pin, width, 1, curve))
-
-
-def home(servos):
-    for x in servos:
-        x.SetPosition(90)
-    time.sleep(0.01)
-
-
-def delay(millis):
-    time.sleep(millis * 0.001)
+# def home(servos):
+#     for x in servos:
+#         x.SetPosition(90)
+#     time.sleep(0.01)
+#
+#
+# def delay(millis):
+#     time.sleep(millis * 0.001)
 
 
 # def moveup():
-    tempo = 485
+    # tempo = 485
     # home(servos)
 
     # self.home()
@@ -290,21 +270,6 @@ if __name__ == '__main__':
         t.start()
         t.connect()
 
-        servos = [
-            OttoServo(t, 'RR', 3, 289),
-            OttoServo(t, 'RL', 2, 315),
-            OttoServo(t, 'YR', 1, 282),
-            OttoServo(t, 'YL', 0, 291),
-        ]
-
-        # t.write(func + move(0, 374, 1))
-        # time.sleep(0.01)
-
-        curve = CURVES.index('BounceOut')
-        s = 2
-
-        # t.write(bytes([0xf4]), True)
-
         licensed = t.write(bytes([0xf3]), True)[-2]
         if not licensed:
         # if True:
@@ -317,11 +282,11 @@ if __name__ == '__main__':
             time.sleep(0.1) # for reset
             t.write(bytes([0xf3]), True)
 
-        t.write(bytes([0x04]), True)
-        payload = [initialize(i, 306, 306, 50, 600) for i in range(16)]
-        t.write(reduce(lambda c, x: c + x, payload, bytearray.fromhex('03')))
 
-        time.sleep(0.01)
+        # init range
+        # payload = [initialize(i, 306, 306, 50, 600) for i in range(16)]
+        # t.write(reduce(lambda c, x: c + x, payload, bytearray.fromhex('03')))
+
 
         # t.write(bytes([0x02]) + oscillate(0, 30, s*100))
         # time.sleep(s)
@@ -350,6 +315,7 @@ if __name__ == '__main__':
 
         # t.write(func + move(0, 450, 100) + move(15, 150, 100))
         # time.sleep(1)
+        time.sleep(0.01)
     except (KeyboardInterrupt, SystemExit):
         print('exit')
     finally:

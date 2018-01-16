@@ -358,8 +358,6 @@ static THD_FUNCTION(ServoDriver, arg) {
   i2cMasterTransmit(&I2CD1, ADDRESS_PCA9685, PCA9685_CONF + 4, 2, NULL, 0);
   i2cReleaseBus(&I2CD1);
 
-  chThdSleepMilliseconds(500);
-
   for (uint8_t i=0; i<LEN; i++) {
     init_servo(servos+i, i);
   }
@@ -548,7 +546,7 @@ static THD_FUNCTION(Pong, arg) {
       buff[0] = 8 * LEN + 3;
     }
 
-    if (p[3] == 0x05) {
+    if (p[3] == 0x05) { // curve angle
       for (uint8_t i = 4; i < p[0]; i += 6) {
         uint8_t index = *(uint8_t *)(p + i) % LEN;
         uint16_t angle = *(uint16_t *)(p + i + 1);
@@ -569,7 +567,7 @@ static THD_FUNCTION(Pong, arg) {
       buff[0] = 3;
     }
 
-    if (p[3] == 0x06) {
+    if (p[3] == 0x06) { // oscillate angle
       for (uint8_t i = 4; i < p[0]; i += 7) {
         uint8_t index = *(uint8_t *)(p + i) % LEN;
         int16_t amplitude = *(int16_t *)(p + i + 1);

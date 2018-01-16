@@ -20,6 +20,22 @@ def initialize(index, init, mid, minimum, maximum):
     return pack('<BHHHH', index, init, mid, minimum, maximum)
 
 
+def move_angle(index, angle, span, curve=0):
+    return pack('<BHHB', index, angle, span, curve)
+
+
+def oscillate_angle(index, amplitude_angle, span, phase=0):
+    return pack('<BhHh', index, amplitude_angle, span, phase)
+
+
+def set_position(index, width):
+    return pack('<BH', index, width)
+
+
+def set_position(index, angle):
+    return pack('<BH', index, angle)
+
+
 def toHex(bs):
     return ' '.join('0x%02x' % c for c in bs)
 
@@ -283,6 +299,7 @@ if __name__ == '__main__':
             t.write(bytes([0xf3]), True)
 
 
+
         # init range
         # payload = [initialize(i, 306, 306, 50, 600) for i in range(16)]
         # t.write(reduce(lambda c, x: c + x, payload, bytearray.fromhex('03')))
@@ -295,6 +312,39 @@ if __name__ == '__main__':
         # time.sleep(s)
 
         while True:
+            # payload = [move_angle(i, 0, 100) for i in range(4)]
+            # t.write(bytes([0x05]) + b''.join(payload))
+            # time.sleep(1)
+            #
+            # payload = [move_angle(i, 90, 100) for i in range(4)]
+            # t.write(bytes([0x05]) + b''.join(payload))
+            # time.sleep(1)
+            #
+            # payload = [move_angle(i, 180, 100) for i in range(4)]
+            # t.write(bytes([0x05]) + b''.join(payload))
+            # time.sleep(1)
+            #
+            payload = [set_position(i, 120) for i in range(4)]
+            t.write(bytes([0x08]) + b''.join(payload))
+
+            payload = [oscillate_angle(i, 30, 100) for i in range(4)]
+            t.write(bytes([0x06]) + b''.join(payload))
+            time.sleep(2)
+
+            payload = [set_position(i, 30) for i in range(4)]
+            t.write(bytes([0x08]) + b''.join(payload))
+
+            payload = [oscillate_angle(i, 30, 100) for i in range(4)]
+            t.write(bytes([0x06]) + b''.join(payload))
+            time.sleep(2)
+
+            # payload = [set_position(i, 120) for i in range(4)]
+            # t.write(bytes([0x08]) + b''.join(payload))
+            #
+            # payload = [oscillate_angle(i, -30, 100) for i in range(4)]
+            # t.write(bytes([0x06]) + b''.join(payload))
+            # time.sleep(1)
+
             # payload = [move(i, 170, s * 100, curve) for i in range(16)]
             # t.write(func + reduce(lambda c, x: c + x, payload, bytearray()))
             #
@@ -310,7 +360,7 @@ if __name__ == '__main__':
             # t.write(bytes([0xf2]) + bytes([0xbe] * 16), True)
             # t.write(bytes([0xf1]))
             # time.sleep(s)
-            break
+            # break
 
 
         # t.write(func + move(0, 450, 100) + move(15, 150, 100))

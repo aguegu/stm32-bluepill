@@ -30,6 +30,7 @@
 #define ADDRESS_AT24C02 0x50
 #define UUID ((uint8_t *)0x1FFFF7E8)
 #define LICENSE_ADDRESS 0xf0
+#define ANGLE2WIDTH (2)
 
 #define MB_SIZE 4
 #define BUFF_SIZE 256
@@ -357,6 +358,8 @@ static THD_FUNCTION(ServoDriver, arg) {
   i2cMasterTransmit(&I2CD1, ADDRESS_PCA9685, PCA9685_CONF + 4, 2, NULL, 0);
   i2cReleaseBus(&I2CD1);
 
+  chThdSleepMilliseconds(500);
+
   for (uint8_t i=0; i<LEN; i++) {
     init_servo(servos+i, i);
   }
@@ -543,6 +546,70 @@ static THD_FUNCTION(Pong, arg) {
         cursor += 8;
       }
       buff[0] = 8 * LEN + 3;
+    }
+
+    if (p[3] == 0x05) {
+      for (uint8_t i = 4; i < p[0]; i += 6) {
+        uint8_t index = *(uint8_t *)(p + i) % LEN;
+        uint16_t angle = *(uint16_t *)(p + i + 1);
+        uint16_t span = *(uint16_t *)(p + i + 3);
+        uint8_t curve = *(uint8_t *)(p + i + 5);
+
+        // *(uint16_t *)(buff + cursor) = servos[index].step;
+        // cursor += 2;
+        chMtxLock(mtx_servos + index);
+        servos[index].start = servos[index].position;
+        servos[index].end = width_mid[index] + (angle - 90) * ANGLE2WIDTH;
+        servos[index].span = span;
+        servos[index].curve = EASING[curve];
+        chMtxUnlock(mtx_servos + index);
+      }
+
+      // buff[0] = cursor - 1;
+      buff[0] = 3;
+    }
+
+    if (p[3] == 0x06) {
+      for (uint8_t i = 4; i < p[0]; i += 7) {
+        uint8_t index = *(uint8_t *)(p + i) % LEN;
+        int16_t amplitude = *(int16_t *)(p + i + 1);
+        uint16_t span = *(uint16_t *)(p + i + 3);
+        int16_t phase = *(int16_t *)(p + i + 5);
+
+        // *(uint16_t *)(buff + cursor) = servos[index].amplitude;
+        // cursor += 2;
+        chMtxLock(mtx_servos + index);
+        servos[index].phase = phase;
+        servos[index].amplitude = amplitude * ANGLE2WIDTH;
+        servos[index].start = servos[index].position - servos[index].amplitude * sin(phase * PI / 180.);
+        servos[index].span = span;
+        servos[index].curve = oscillate;
+        chMtxUnlock(mtx_servos + index);
+      }
+      // buff[0] = cursor - 1;
+      buff[0] = 3;
+    }
+
+    if (p[3] == 0x07) {
+      for (uint8_t i = 4; i < p[0]; i += 3) {
+        uint8_t index = *(uint8_t *)(p + i) % LEN;
+        uint16_t width = *(uint16_t *)(p + i + 1);
+        chMtxLock(mtx_servos + index);
+        servos[index].position = width;
+        chMtxUnlock(mtx_servos + index);
+      }
+      buff[0] = 3;
+    }
+
+    if (p[3] == 0x08) {
+      for (uint8_t i = 4; i < p[0]; i += 3) {
+        uint8_t index = *(uint8_t *)(p + i) % LEN;
+        uint16_t angle = *(uint16_t *)(p + i + 1);
+        chMtxLock(mtx_servos + index);
+        servos[index].position = width_mid[index] + (angle - 90) * ANGLE2WIDTH;
+        chMtxUnlock(mtx_servos + index);
+      }
+      buff[0] = 3;
     }
 
     if (p[3] == 0xf0) { // read chip serial

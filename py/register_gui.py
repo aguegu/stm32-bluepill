@@ -2,7 +2,7 @@ import wx
 from serial.tools import list_ports
 import serial
 from struct import unpack, pack
-from Crypto.Cipher import AES
+from Cryptodome.Cipher import AES
 import time
 from os import path
 from datetime import datetime
@@ -175,5 +175,5 @@ class Demo(wx.Frame):
 
 if __name__ == '__main__':
     app = wx.App()
-    Demo(None, title='Hunterio Servo Board Register', size=(600, 100))
+    Demo(None, title='Hunterio Servo Board Register', size=(600, 128))
     app.MainLoop()

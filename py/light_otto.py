@@ -14,17 +14,19 @@ class OttoServo():
         self.home = home
 
     def get_width(self, angle):
-        return round(self.home + (angle - 90) * 34.0 / 15.)
+        return round(self.home + (angle - 90) * 2)
 
     def SetPosition(self, angle, millis=0, curve=0):
-        width = self.get_width(angle)
-        self.host.write(bytes([0x01]) + OttoServo.move(self.pin, width, max(1, int(millis / 10)), curve))
+        # width = self.get_width(angle)
+        # self.host.write(bytes([0x01]) + OttoServo.move(self.pin, width, max(1, int(millis / 10)), curve))
+        self.host.write(bytes([0x05]) + OttoServo.move(self.pin, angle, max(1, int(millis / 10)), curve))
 
     def oscillate(self, amplitude, millis=0, phase=0):
         # print(amplitude, phase, millis)
-        payload = OttoServo.oscil(self.pin, int(amplitude * 34.0 / 15.), int(millis / 10), phase)
-        print(payload)
-        self.host.write(bytes([0x02]) + payload)
+        # payload = OttoServo.oscil(self.pin, int(amplitude * 34.0 / 15.), int(millis / 10), phase)
+        payload = OttoServo.oscil(self.pin, int(amplitude), int(millis / 10), phase)
+        # print(payload)
+        self.host.write(bytes([0x06]) + payload)
         # self.host.write(bytes([0x02]) + OttoServo.move(self.pin, width, 1, curve))
 
     @classmethod

@@ -30,6 +30,8 @@ int main(void) {
     uint16_t i = 0;
     uint16_t c = 64 * 32;
     // 64: gear ratio, 32: full phase ration
+    // gear ratio: 32 / 9 * 22 / 11 * 26 / 9 * 31 / 10
+    // = (32 * 22 * 26 * 31) / (9 * 11 * 9 * 10) = 25792 / 405
 
     while(1) {
         palTogglePad(GPIOC, GPIOC_LED);

@@ -54,15 +54,16 @@ int main(void) {
     pwmStart(&PWMD3, &pwmcfg);
     pwmStart(&PWMD4, &pwmcfg);
 
+    pwmEnableChannel(&PWMD3, 0, 1500);
+    pwmEnableChannel(&PWMD3, 1, 1500);
+    pwmEnableChannel(&PWMD3, 2, 1500);
+    pwmEnableChannel(&PWMD3, 3, 1500);
+
     pwmEnableChannel(&PWMD4, 0, 1500);
     pwmEnableChannel(&PWMD4, 1, 1500);
     pwmEnableChannel(&PWMD4, 2, 1500);
     pwmEnableChannel(&PWMD4, 3, 1500);
 
-    pwmEnableChannel(&PWMD3, 0, 1500);
-    pwmEnableChannel(&PWMD3, 1, 1500);
-    pwmEnableChannel(&PWMD3, 2, 1500);
-    pwmEnableChannel(&PWMD3, 3, 1500);
 
     int16_t w = 1500;
     int16_t step = 100;

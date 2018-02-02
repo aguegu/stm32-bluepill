@@ -7,5 +7,6 @@ venv/
 ChibiOS
 gcc-arm-none-eabi
 chibios-i2c-slave
+ugfx
 py/
 tinycrypt/

@@ -58,6 +58,7 @@ static MAILBOX_DECL(mbduty, mbduty_buffer, MB_SIZE);
 static systime_t timeout = MS2ST(200);
 static mutex_t mtx_sd1;
 static mutex_t mtx_servos[LEN];
+
 static uint8_t licensed = 0x00;
 static uint16_t cnt = 0;
 
@@ -726,6 +727,11 @@ int main (void) {
     }
     free(rx);
 
+    chThdCreateStatic(waBlink, sizeof(waBlink), (NORMALPRIO + 2), Blink, NULL);
+    chThdCreateStatic(waServoDriver, sizeof(waServoDriver), (NORMALPRIO + 1), ServoDriver, NULL);
+    chThdCreateStatic(waPing, sizeof(waPing), (NORMALPRIO), Ping, NULL);
+    chThdCreateStatic(waPong, sizeof(waPong), (NORMALPRIO), Pong, NULL);
+
     // license verification
     struct tc_aes_key_sched_struct s;
     tc_aes128_set_encrypt_key(&s, aes_key);
@@ -754,13 +760,10 @@ int main (void) {
     free(sid);
 
     // start routine
-    chThdCreateStatic(waBlink, sizeof(waBlink), (NORMALPRIO + 2), Blink, NULL);
-    chThdCreateStatic(waServoDriver, sizeof(waServoDriver), (NORMALPRIO + 1), ServoDriver, NULL);
-    chThdCreateStatic(waPing, sizeof(waPing), (NORMALPRIO), Ping, NULL);
-    chThdCreateStatic(waPong, sizeof(waPong), (NORMALPRIO), Pong, NULL);
+
     gptStart(&GPTD1, &gpt1cfg);
 
-    gptStartContinuous(&GPTD1, 98);  // 1000 / 50 = 200Hz
+    gptStartContinuous(&GPTD1, 98);  // 1000 / 100 = 10Hz
 
     while(1) {
       chThdSleepSeconds(1);

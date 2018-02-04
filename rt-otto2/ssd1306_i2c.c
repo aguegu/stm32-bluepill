@@ -37,6 +37,8 @@ void ssd1306_init(I2CDriver *i2c) {
 }
 
 void ssd1306_display() {
+  i2cAcquireBus(i2cp);
+
   i2cMasterTransmit(i2cp, 0x3c,
                         raw, BUFFER_LEN_RAW, NULL, 0);
   i2cReleaseBus(i2cp);
@@ -57,10 +59,18 @@ void ssd1306_frame(void) {
 void ssd1306_putnumber(uint16_t index, uint16_t val) {
   uint8_t st = 32;
   uint16_t offset = (index << 6) + (index & 0x01) * 28;
+  uint8_t i = 0;
   do {
     uint8_t x = val % 10;
     memcpy(buffer + offset + st, font + x * 3, 3);
     val /= 10;
     st -= 4;
-  } while(val);
+    i++;
+  } while (val);
+
+  st += 3;
+  while (st > 5) {
+    buffer[offset + st] = 0;
+    st--;
+  }
 }

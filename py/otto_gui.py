@@ -132,6 +132,11 @@ class Demo(wx.Frame):
         # print('tx:', toHex(tx), datetime.now())
         print('tx:', toHex(tx))
         self.tty.write(tx)
+        rx_len = self.tty.read(1)
+        rx_payload = self.tty.read(unpack('B', rx_len)[0])
+        print('rx:', toHex(rx_len), toHex(rx_payload))
+
+
         self.uid += 1
         self.uid &= 0xff
 

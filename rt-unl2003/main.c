@@ -22,13 +22,13 @@ int main(void) {
     chSysInit();
 
     palSetPadMode(GPIOC, GPIOC_LED, PAL_MODE_OUTPUT_OPENDRAIN);
-    palSetPadMode(GPIOA, 0, PAL_MODE_OUTPUT_PUSHPULL);
-    palSetPadMode(GPIOA, 1, PAL_MODE_OUTPUT_PUSHPULL);
-    palSetPadMode(GPIOA, 2, PAL_MODE_OUTPUT_PUSHPULL);
-    palSetPadMode(GPIOA, 3, PAL_MODE_OUTPUT_PUSHPULL);
+    palSetPadMode(GPIOB, 6, PAL_MODE_OUTPUT_PUSHPULL);
+    palSetPadMode(GPIOB, 7, PAL_MODE_OUTPUT_PUSHPULL);
+    palSetPadMode(GPIOB, 8, PAL_MODE_OUTPUT_PUSHPULL);
+    palSetPadMode(GPIOB, 9, PAL_MODE_OUTPUT_PUSHPULL);
 
     uint16_t i = 0;
-    uint16_t c = 64 * 32;
+    // uint16_t c = 64 * 32;
     // 64: gear ratio, 32: full phase ration
     // gear ratio: 32 / 9 * 22 / 11 * 26 / 9 * 31 / 10
     // = (32 * 22 * 26 * 31) / (9 * 11 * 9 * 10) = 25792 / 405
@@ -36,19 +36,19 @@ int main(void) {
     while(1) {
         palTogglePad(GPIOC, GPIOC_LED);
 
-        palSetPad(GPIOA, i % 4);
-        palSetPad(GPIOA, (i + 1) % 4);
-        palClearPad(GPIOA, (i + 2) % 4);
-        palClearPad(GPIOA, (i + 3) % 4);
+        palSetPad(GPIOB, (i % 4) + 6);
+        palSetPad(GPIOB, ((i + 1) % 4) + 6);
+        palClearPad(GPIOB, ((i + 2) % 4) + 6);
+        palClearPad(GPIOB, ((i + 3) % 4) + 6);
 
         chThdSleepMilliseconds(1);
 
         i++;
 
-        if (i == c) {
-          chThdSleepSeconds(1);
-          i = 0;
-        }
+        // if (i == c) {
+        //   chThdSleepSeconds(1);
+        //   i = 0;
+        // }
     }
 
     while(1);

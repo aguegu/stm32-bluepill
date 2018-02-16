@@ -6,7 +6,7 @@ extern "C" {
 #endif
 
   #define WIDTH		128
-  #define HEIGHT  32
+  #define HEIGHT  64
   #define BUFFER_LEN (WIDTH * HEIGHT >> 3)
   #define BUFFER_LEN_RAW (BUFFER_LEN + 3)
 

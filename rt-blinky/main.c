@@ -25,7 +25,7 @@ int main(void) {
 
     while(1) {
         palTogglePad(GPIOC, GPIOC_LED);
-        chThdSleepMilliseconds(1000);
+        chThdSleepMilliseconds(250);
     }
     return 0;
 }

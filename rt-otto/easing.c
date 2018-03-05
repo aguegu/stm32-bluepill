@@ -1,3 +1,7 @@
+#include "easing.h"
+
+const double PI = acos(-1);
+
 double easeLinear(double t) {
   return t;
 }
@@ -156,6 +160,10 @@ double easeBounceInOut(double t) {
     return 0.5 * easeBounceIn (2 * t);
   }
   return 0.5 * easeBounceOut(2 * t - 1) + 0.5;
+}
+
+double oscillate(double t) {
+  return t; // fake func
 }
 
 double (*EASING[28])(double) = {

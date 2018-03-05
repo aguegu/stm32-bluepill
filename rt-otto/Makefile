@@ -117,10 +117,10 @@ CSRC = $(STARTUPSRC) \
 			 $(CHIBIOS)/os/hal/lib/streams/memstreams.c \
 			 $(CHIBIOS)/os/hal/lib/streams/chprintf.c \
 			 $(CHIBIOS)/os/various/syscalls.c \
-			 usbcfg.c main.c
-			 # ../tinycrypt/lib/source/aes_encrypt.c \
-			 # ../tinycrypt/lib/source/aes_decrypt.c \
-			 # ../tinycrypt/lib/source/utils.c \
+			 ../tinycrypt/lib/source/aes_encrypt.c \
+			 ../tinycrypt/lib/source/aes_decrypt.c \
+			 ../tinycrypt/lib/source/utils.c \
+			 usbcfg.c easing.c main.c
        # main.c
 
 # C++ sources that can be compiled in ARM or THUMB mode depending on the global

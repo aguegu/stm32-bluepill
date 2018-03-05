@@ -4,7 +4,8 @@
 #include "ch.h"
 #include "chprintf.h"
 #include "usbcfg.h"
-
+#include "easing.h"
+#include "tinycrypt/aes.h"
 
 #define ADDRESS_PCA9685 0x40
 #define ADDRESS_AT24C02 0x50
@@ -15,6 +16,16 @@
 #define BUFF_SIZE 256
 
 #define UUID ((uint8_t *)0x1FFFF7E8)
+#define ANGLE2WIDTH (2)
+
+#define LICENSE_ADDRESS 0xf0
+
+#define VERSION 2
+#define POSTFIX 0x5846d7dc
+
+static const uint8_t aes_key[16] = {
+  0x02, 0xc8, 0x69, 0x40, 0xec, 0x17, 0xe0, 0xf8, 0xbd, 0xaa, 0xfd, 0x2b, 0xa4, 0x1c, 0xa8, 0x78
+};
 
 typedef struct {
   uint8_t buff[BUFF_SIZE];
@@ -30,12 +41,14 @@ static msg_t mbduty_buffer[MB_SIZE];
 static MAILBOX_DECL(mbduty, mbduty_buffer, MB_SIZE);
 
 static mutex_t mtx_bc;
+static mutex_t mtx_servos[LEN];
 
 static uint16_t width_init[LEN];
 static uint16_t width_mid[LEN];
 static uint16_t width_min[LEN];
 static uint16_t width_max[LEN];
 
+static binary_semaphore_t i2c_bsem;
 BaseSequentialStream* chp = (BaseSequentialStream*) &SD1;
 
 typedef struct {
@@ -67,7 +80,7 @@ static THD_FUNCTION(Blink, arg) {
   chRegSetThreadName("blink");
   while (true) {
     palTogglePad(GPIOC, GPIOC_LED);
-    chThdSleepMilliseconds(200);
+    chThdSleepMilliseconds(serusbcfg.usbp->state == USB_ACTIVE ? 250 : 1000);
   }
 }
 
@@ -75,15 +88,15 @@ static const uint8_t PCA9685_CONF[6] = {0x00, 0x31, 0xfe, 136, 0x00, 0x21};
 static uint8_t buff_i2c[LEN * 4 + 1] = {0};
 
 void transmit(I2CDriver * i2cp) {
-  uint16_t width = 306;
+  uint16_t width;
   for (uint8_t i=0; i<LEN; i++) {
-    // width = (uint16_t)(servos[i].position + 0.5);
-    // if (width > width_max[i]) {
-    //   width = width_max[i];
-    // }
-    // if (width < width_min[i]) {
-    //   width = width_min[i];
-    // }
+    width = (uint16_t)(servos[i].position + 0.5);
+    if (width > width_max[i]) {
+      width = width_max[i];
+    }
+    if (width < width_min[i]) {
+      width = width_min[i];
+    }
     buff_i2c[i * 4 + 3] = width & 0xff;
     buff_i2c[i * 4 + 4] = width >> 8;
   }
@@ -91,6 +104,33 @@ void transmit(I2CDriver * i2cp) {
   i2cAcquireBus(i2cp);
   i2cMasterTransmit(i2cp, ADDRESS_PCA9685, buff_i2c, LEN * 4 + 1, NULL, 0);
   i2cReleaseBus(i2cp);
+}
+
+double calc_position(Servo * self, uint16_t step) {
+  double t = (double)step / (double)self->span;
+  double width;
+  if (self->curve == oscillate) {
+    width = self->start + self->amplitude * sin(t * 2 * PI + self->phase * PI / 180);
+  } else {
+    double r = self->curve(t);
+    width = self->start + self->end * r - self->start * r;
+  }
+  return width;
+}
+
+
+void update(uint8_t index) {
+  Servo * self = servos + index;
+  chMtxLock(mtx_servos + index);
+  if (self->step < self->span) {
+    self->position = calc_position(self, ++self->step);
+  }
+
+  if (self->step >= self->span) {
+    self->step = 0;
+    self->span = 0;
+  }
+  chMtxUnlock(mtx_servos + index);
 }
 
 static THD_WORKING_AREA(waServoDriver, 512);
@@ -111,94 +151,79 @@ static THD_FUNCTION(ServoDriver, i2cp) {
   palClearPad(GPIOB, 5);
 
   while (true) {
-    chThdSleepMilliseconds(1000);
+    bool isUpdated = false;
+    for (uint8_t i=0; i<LEN; i++) {
+      if (servos[i].span) {
+        update(i);
+        isUpdated = true;
+      }
+    }
+    if (isUpdated) {
+      transmit(i2cp);
+    }
+    chBSemWait(&i2c_bsem);
   }
+}
 
-  // for (uint8_t i=0; i<LEN; i++) {
-  //   init_servo(servos+i, i);
-  // }
-  //
-  // buff_i2c[0] = 0x06;
-  // transmit();
-  //
-  // while (true) {
-  //   bool isUpdated = false;
-  //   for (uint8_t i=0; i<LEN; i++) {
-  //     if (servos[i].span) {
-  //       update(i);
-  //       isUpdated = true;
-  //     }
-  //   }
-  //   if (isUpdated) {
-  //     transmit();
-  //   }
-  //   chBSemWait(&i2c_bsem);
-  // }
+void fetchInstruction(BaseChannel *bc, uint8_t *buff, uint8_t * rx) {
+  static Instruction * p;
+  static msg_t status;
+  static systime_t timeout = MS2ST(20);
+
+  chnRead(bc, buff, 1);
+  uint8_t length = buff[0];
+  if (length >= 2) {
+    chnRead(bc, buff + 1, 2);
+    if (buff[1] + buff[2] == 0xff) {
+      if (length == 2) {
+        chMtxLock(&mtx_bc);
+        chnWrite(bc, buff, 3);
+        chMtxUnlock(&mtx_bc);
+      } else {
+        uint8_t len = chnReadTimeout(bc, buff + 3, length - 2, timeout);
+        if (len == length - 2) {
+          status = chMBFetch(&mbfree, (msg_t *)(&p), TIME_IMMEDIATE);
+          if (status == MSG_OK) {
+            // if (!licensed && cnt > 0x1000 && !(cnt & 0x03)) {
+            //   rx[0] = 3;
+            //   rx[1] = buff[1];
+            //   rx[2] = buff[2];
+            //   rx[3] = 0xfe; // no license response
+            //   chMtxLock(&mtx_bc);
+            //   sdWrite(&SD1, rx, 4);
+            //   chMtxUnlock(&mtx_bc);
+            //   chMBPost(&mbfree, (msg_t)p, TIME_INFINITE);
+            // } else {
+              memcpy(p->buff, buff, length + 1);
+              p->source = bc;
+              chMBPost(&mbduty, (msg_t)p, TIME_INFINITE);
+            // }
+            cnt++;
+          } else {
+            rx[0] = 3;
+            rx[1] = buff[1];
+            rx[2] = buff[2];
+            rx[3] = 0xff; // busy response
+            chMtxLock(&mtx_bc);
+            chnWrite(bc, rx, 4);
+            chMtxUnlock(&mtx_bc);
+          }
+        }
+      }
+    }
+  }
 }
 
 static THD_WORKING_AREA(waPing, 512);
 static THD_FUNCTION(Ping, bc0) {
   chRegSetThreadName("ping");
+
   uint8_t buff[BUFF_SIZE];
-  uint8_t rx[4];;
-  uint8_t length;
-  // msg_t *p;
-  Instruction * p;
-  msg_t status;
-  static systime_t timeout = MS2ST(20);
+  uint8_t rx[4];
   BaseChannel *bc = (BaseChannel *)bc0;
 
   while (true) {
-    chnRead(bc, buff, 1);
-    // sdRead(&SD1, buff, 1);
-    length = buff[0];
-    if (length >= 2) {
-      // sdRead(&SD1, buff + 1, 2);
-      chnRead(bc, buff + 1, 2);
-      if (buff[1] + buff[2] == 0xff) {
-        if (length == 2) {
-          chMtxLock(&mtx_bc);
-          // sdWrite(&SD1, buff, 3);
-          chnWrite(bc, buff, 3);
-          chMtxUnlock(&mtx_bc);
-        } else {
-          // uint8_t len = sdReadTimeout(&SD1, buff + 3, length - 2, timeout);
-          uint8_t len = chnReadTimeout(bc, buff + 3, length - 2, timeout);
-          if (len == length - 2) {
-            // status = chMBFetch(&mbfree, (msg_t *)&p, TIME_IMMEDIATE);
-            status = chMBFetch(&mbfree, (msg_t *)(&p), TIME_IMMEDIATE);
-            // chprintf(chp, "%u \r\n", *(msg_t*)p);
-            if (status == MSG_OK) {
-              // if (!licensed && cnt > 0x1000 && !(cnt & 0x03)) {
-              //   rx[0] = 3;
-              //   rx[1] = buff[1];
-              //   rx[2] = buff[2];
-              //   rx[3] = 0xfe; // no license response
-              //   chMtxLock(&mtx_bc);
-              //   sdWrite(&SD1, rx, 4);
-              //   chMtxUnlock(&mtx_bc);
-              //   chMBPost(&mbfree, (msg_t)p, TIME_INFINITE);
-              // } else {
-                memcpy(p->buff, buff, length + 1);
-                p->source = bc;
-                chMBPost(&mbduty, (msg_t)p, TIME_INFINITE);
-              // }
-              cnt++;
-            } else {
-              rx[0] = 3;
-              rx[1] = buff[1];
-              rx[2] = buff[2];
-              rx[3] = 0xff; // busy response
-              chMtxLock(&mtx_bc);
-              // sdWrite(&SD1, rx, 4);
-              chnWrite(bc, rx, 4);
-              chMtxUnlock(&mtx_bc);
-              // chMBPost(&mbfree, (msg_t)p, TIME_INFINITE);
-            }
-          }
-        }
-      }
-    }
+    fetchInstruction(bc, buff, rx);
   }
 }
 
@@ -206,65 +231,11 @@ static THD_WORKING_AREA(waCdc, 512);
 static THD_FUNCTION(Cdc, bc0) {
   chRegSetThreadName("cdc");
   uint8_t buff[BUFF_SIZE];
-  uint8_t rx[4];;
-  uint8_t length;
-  // msg_t *p;
-  Instruction * p;
-  msg_t status;
-  static systime_t timeout = MS2ST(20);
+  uint8_t rx[4];
   BaseChannel *bc = (BaseChannel *)bc0;
 
   while (true) {
-    chnRead(bc, buff, 1);
-    // sdRead(&SD1, buff, 1);
-    length = buff[0];
-    if (length >= 2) {
-      // sdRead(&SD1, buff + 1, 2);
-      chnRead(bc, buff + 1, 2);
-      if (buff[1] + buff[2] == 0xff) {
-        if (length == 2) {
-          chMtxLock(&mtx_bc);
-          // sdWrite(&SD1, buff, 3);
-          chnWrite(bc, buff, 3);
-          chMtxUnlock(&mtx_bc);
-        } else {
-          // uint8_t len = sdReadTimeout(&SD1, buff + 3, length - 2, timeout);
-          uint8_t len = chnReadTimeout(bc, buff + 3, length - 2, timeout);
-          if (len == length - 2) {
-            // status = chMBFetch(&mbfree, (msg_t *)&p, TIME_IMMEDIATE);
-            status = chMBFetch(&mbfree, (msg_t *)(&p), TIME_IMMEDIATE);
-            // chprintf(chp, "%u \r\n", *(msg_t*)p);
-            if (status == MSG_OK) {
-              // if (!licensed && cnt > 0x1000 && !(cnt & 0x03)) {
-              //   rx[0] = 3;
-              //   rx[1] = buff[1];
-              //   rx[2] = buff[2];
-              //   rx[3] = 0xfe; // no license response
-              //   chMtxLock(&mtx_bc);
-              //   sdWrite(&SD1, rx, 4);
-              //   chMtxUnlock(&mtx_bc);
-              //   chMBPost(&mbfree, (msg_t)p, TIME_INFINITE);
-              // } else {
-                memcpy(p->buff, buff, length + 1);
-                p->source = bc;
-                chMBPost(&mbduty, (msg_t)p, TIME_INFINITE);
-              // }
-              cnt++;
-            } else {
-              rx[0] = 3;
-              rx[1] = buff[1];
-              rx[2] = buff[2];
-              rx[3] = 0xff; // busy response
-              chMtxLock(&mtx_bc);
-              // sdWrite(&SD1, rx, 4);
-              chnWrite(bc, rx, 4);
-              chMtxUnlock(&mtx_bc);
-              // chMBPost(&mbfree, (msg_t)p, TIME_INFINITE);
-            }
-          }
-        }
-      }
-    }
+    fetchInstruction(bc, buff, rx);
   }
 }
 
@@ -273,215 +244,184 @@ void softreset(void) {
 }
 
 static THD_WORKING_AREA(waPong, 1024);
-static THD_FUNCTION(Pong, arg) {
-  (void)arg;
+static THD_FUNCTION(Pong, i2cp) {
+  // (void)arg;
   // uint8_t *p;
   chRegSetThreadName("pong");
-  Instruction *p;
+  Instruction *instruction;
   uint8_t buff[BUFF_SIZE];
   uint8_t flag_reset = 0;
 
   while (true) {
-    chMBFetch(&mbduty, (msg_t *)(&p), TIME_INFINITE);
-    memcpy(buff, p->buff, 3);
+    chMBFetch(&mbduty, (msg_t *)(&instruction), TIME_INFINITE);
+    uint8_t *p = instruction->buff;
+
+    memcpy(buff, p, 3);
 
     buff[3] = 0x00; // success
     uint8_t cursor = 4;
 
-    // if (p[3] == 0x01) { // curve
-    //   for (uint8_t i = 4; i < p[0]; i += 6) {
-    //     uint8_t index = *(uint8_t *)(p + i) % LEN;
-    //     uint16_t width = *(uint16_t *)(p + i + 1);
-    //     uint16_t span = *(uint16_t *)(p + i + 3);
-    //     uint8_t curve = *(uint8_t *)(p + i + 5);
-    //
-    //     // *(uint16_t *)(buff + cursor) = servos[index].step;
-    //     // cursor += 2;
-    //     chMtxLock(mtx_servos + index);
-    //     servos[index].start = servos[index].position;
-    //     servos[index].end = width;
-    //     servos[index].span = span;
-    //     servos[index].curve = EASING[curve];
-    //     chMtxUnlock(mtx_servos + index);
-    //   }
-    //
-    //   // buff[0] = cursor - 1;
-    //   buff[0] = 3;
-    // }
-    //
-    // if (p[3] == 0x02) { // oscillate
-    //   for (uint8_t i = 4; i < p[0]; i += 7) {
-    //     uint8_t index = *(uint8_t *)(p + i) % LEN;
-    //     int16_t amplitude = *(int16_t *)(p + i + 1);
-    //     uint16_t span = *(uint16_t *)(p + i + 3);
-    //     int16_t phase = *(int16_t *)(p + i + 5);
-    //
-    //     // *(uint16_t *)(buff + cursor) = servos[index].amplitude;
-    //     // cursor += 2;
-    //     chMtxLock(mtx_servos + index);
-    //     servos[index].phase = phase;
-    //     servos[index].amplitude = amplitude;
-    //     servos[index].start = servos[index].position - amplitude * sin(phase * PI / 180.);
-    //     servos[index].span = span;
-    //     servos[index].curve = oscillate;
-    //     chMtxUnlock(mtx_servos + index);
-    //   }
-    //
-    //   // buff[0] = cursor - 1;
-    //   buff[0] = 3;
-    // }
-    //
-    // if (p[3] == 0x03) { // write init/mid/min/max
-    //   for (uint8_t i = 4; i < p[0]; i += 9) {
-    //     uint8_t tx[9] = {0};
-    //     uint8_t index = *(uint8_t *)(p + i) % LEN;
-    //     width_init[index] = *(uint16_t *)(p + i + 1);
-    //     width_mid[index] = *(uint16_t *)(p + i + 3);
-    //     width_min[index] = *(uint16_t *)(p + i + 5);
-    //     width_max[index] = *(uint16_t *)(p + i + 7);
-    //
-    //     tx[0] = index * 8;
-    //     memcpy(tx + 1, p + i + 1, 8);
-    //     i2cAcquireBus(&I2CD1);
-    //     i2cMasterTransmit(&I2CD1, ADDRESS_AT24C02, tx, 9, NULL, 0);
-    //     chThdSleepMilliseconds(5);
-    //     i2cReleaseBus(&I2CD1);
-    //   }
-    //   buff[0] = 3;
-    // }
-    //
-    // if (p[3] == 0x04) { // read init/mid/min/max
-    //   for (uint8_t i = 0; i < LEN; i++) {
-    //     *(uint16_t *)(buff + cursor) = width_init[i];
-    //     *(uint16_t *)(buff + cursor + 2) = width_mid[i];
-    //     *(uint16_t *)(buff + cursor + 4) = width_min[i];
-    //     *(uint16_t *)(buff + cursor + 6) = width_max[i];
-    //     cursor += 8;
-    //   }
-    //   buff[0] = 8 * LEN + 3;
-    // }
-    //
-    // if (p[3] == 0x05) { // curve angle
-    //   for (uint8_t i = 4; i < p[0]; i += 6) {
-    //     uint8_t index = *(uint8_t *)(p + i) % LEN;
-    //     uint16_t angle = *(uint16_t *)(p + i + 1);
-    //     uint16_t span = *(uint16_t *)(p + i + 3);
-    //     uint8_t curve = *(uint8_t *)(p + i + 5);
-    //
-    //     // *(uint16_t *)(buff + cursor) = servos[index].step;
-    //     // cursor += 2;
-    //     chMtxLock(mtx_servos + index);
-    //     servos[index].start = servos[index].position;
-    //     servos[index].end = width_mid[index] + (angle - 90) * ANGLE2WIDTH;
-    //     servos[index].span = span;
-    //     servos[index].curve = EASING[curve];
-    //     chMtxUnlock(mtx_servos + index);
-    //   }
-    //
-    //   // buff[0] = cursor - 1;
-    //   buff[0] = 3;
-    // }
-    //
-    // if (p[3] == 0x06) { // oscillate angle
-    //   for (uint8_t i = 4; i < p[0]; i += 7) {
-    //     uint8_t index = *(uint8_t *)(p + i) % LEN;
-    //     int16_t amplitude = *(int16_t *)(p + i + 1);
-    //     uint16_t span = *(uint16_t *)(p + i + 3);
-    //     int16_t phase = *(int16_t *)(p + i + 5);
-    //
-    //     // *(uint16_t *)(buff + cursor) = servos[index].amplitude;
-    //     // cursor += 2;
-    //     chMtxLock(mtx_servos + index);
-    //     servos[index].phase = phase;
-    //     servos[index].amplitude = amplitude * ANGLE2WIDTH;
-    //     servos[index].start = servos[index].position - servos[index].amplitude * sin(phase * PI / 180.);
-    //     servos[index].span = span;
-    //     servos[index].curve = oscillate;
-    //     chMtxUnlock(mtx_servos + index);
-    //   }
-    //   // buff[0] = cursor - 1;
-    //   buff[0] = 3;
-    // }
-    //
-    // if (p[3] == 0x07) {
-    //   for (uint8_t i = 4; i < p[0]; i += 3) {
-    //     uint8_t index = *(uint8_t *)(p + i) % LEN;
-    //     uint16_t width = *(uint16_t *)(p + i + 1);
-    //     chMtxLock(mtx_servos + index);
-    //     servos[index].position = width;
-    //     chMtxUnlock(mtx_servos + index);
-    //   }
-    //   buff[0] = 3;
-    // }
-    //
-    // if (p[3] == 0x08) {
-    //   for (uint8_t i = 4; i < p[0]; i += 3) {
-    //     uint8_t index = *(uint8_t *)(p + i) % LEN;
-    //     uint16_t angle = *(uint16_t *)(p + i + 1);
-    //     chMtxLock(mtx_servos + index);
-    //     servos[index].position = width_mid[index] + (angle - 90) * ANGLE2WIDTH;
-    //     chMtxUnlock(mtx_servos + index);
-    //   }
-    //   buff[0] = 3;
-    // }
-    //
-    if (p->buff[3] == 0xf0) { // read chip serial
+    if (p[3] == 0x01) { // curve
+      for (uint8_t i = 4; i < p[0]; i += 6) {
+        uint8_t index = *(uint8_t *)(p + i) % LEN;
+        uint16_t width = *(uint16_t *)(p + i + 1);
+        uint16_t span = *(uint16_t *)(p + i + 3);
+        uint8_t curve = *(uint8_t *)(p + i + 5);
+
+        chMtxLock(mtx_servos + index);
+        servos[index].start = servos[index].position;
+        servos[index].end = width;
+        servos[index].span = span;
+        servos[index].curve = EASING[curve];
+        chMtxUnlock(mtx_servos + index);
+      }
+
+      buff[0] = 3;
+    } else if (p[3] == 0x02) { // oscillate
+      for (uint8_t i = 4; i < p[0]; i += 7) {
+        uint8_t index = *(uint8_t *)(p + i) % LEN;
+        int16_t amplitude = *(int16_t *)(p + i + 1);
+        uint16_t span = *(uint16_t *)(p + i + 3);
+        int16_t phase = *(int16_t *)(p + i + 5);
+
+        chMtxLock(mtx_servos + index);
+        servos[index].phase = phase;
+        servos[index].amplitude = amplitude;
+        servos[index].start = servos[index].position - amplitude * sin(phase * PI / 180.);
+        servos[index].span = span;
+        servos[index].curve = oscillate;
+        chMtxUnlock(mtx_servos + index);
+      }
+
+      buff[0] = 3;
+    } else if (p[3] == 0x03) { // write init/mid/min/max
+      for (uint8_t i = 4; i < p[0]; i += 9) {
+        uint8_t tx[9] = {0};
+        uint8_t index = *(uint8_t *)(p + i) % LEN;
+        width_init[index] = *(uint16_t *)(p + i + 1);
+        width_mid[index] = *(uint16_t *)(p + i + 3);
+        width_min[index] = *(uint16_t *)(p + i + 5);
+        width_max[index] = *(uint16_t *)(p + i + 7);
+
+        tx[0] = index * 8;
+        memcpy(tx + 1, p + i + 1, 8);
+        i2cAcquireBus(i2cp);
+        i2cMasterTransmit(i2cp, ADDRESS_AT24C02, tx, 9, NULL, 0);
+        chThdSleepMilliseconds(5);
+        i2cReleaseBus(i2cp);
+      }
+      buff[0] = 3;
+    } else if (p[3] == 0x04) { // read init/mid/min/max
+      for (uint8_t i = 0; i < LEN; i++) {
+        *(uint16_t *)(buff + cursor) = width_init[i];
+        *(uint16_t *)(buff + cursor + 2) = width_mid[i];
+        *(uint16_t *)(buff + cursor + 4) = width_min[i];
+        *(uint16_t *)(buff + cursor + 6) = width_max[i];
+        cursor += 8;
+      }
+      buff[0] = 8 * LEN + 3;
+    } else if (p[3] == 0x05) { // curve angle
+      for (uint8_t i = 4; i < p[0]; i += 6) {
+        uint8_t index = *(uint8_t *)(p + i) % LEN;
+        uint16_t angle = *(uint16_t *)(p + i + 1);
+        uint16_t span = *(uint16_t *)(p + i + 3);
+        uint8_t curve = *(uint8_t *)(p + i + 5);
+
+        chMtxLock(mtx_servos + index);
+        servos[index].start = servos[index].position;
+        servos[index].end = width_mid[index] + (angle - 90) * ANGLE2WIDTH;
+        servos[index].span = span;
+        servos[index].curve = EASING[curve];
+        chMtxUnlock(mtx_servos + index);
+      }
+      buff[0] = 3;
+    } else if (p[3] == 0x06) { // oscillate angle
+      for (uint8_t i = 4; i < p[0]; i += 7) {
+        uint8_t index = *(uint8_t *)(p + i) % LEN;
+        int16_t amplitude = *(int16_t *)(p + i + 1);
+        uint16_t span = *(uint16_t *)(p + i + 3);
+        int16_t phase = *(int16_t *)(p + i + 5);
+
+        // *(uint16_t *)(buff + cursor) = servos[index].amplitude;
+        // cursor += 2;
+        chMtxLock(mtx_servos + index);
+        servos[index].phase = phase;
+        servos[index].amplitude = amplitude * ANGLE2WIDTH;
+        servos[index].start = servos[index].position - servos[index].amplitude * sin(phase * PI / 180.);
+        servos[index].span = span;
+        servos[index].curve = oscillate;
+        chMtxUnlock(mtx_servos + index);
+      }
+      // buff[0] = cursor - 1;
+      buff[0] = 3;
+    } else if (p[3] == 0x07) {
+      for (uint8_t i = 4; i < p[0]; i += 3) {
+        uint8_t index = *(uint8_t *)(p + i) % LEN;
+        uint16_t width = *(uint16_t *)(p + i + 1);
+        chMtxLock(mtx_servos + index);
+        servos[index].position = width;
+        chMtxUnlock(mtx_servos + index);
+      }
+      buff[0] = 3;
+    } else  if (p[3] == 0x08) {
+      for (uint8_t i = 4; i < p[0]; i += 3) {
+        uint8_t index = *(uint8_t *)(p + i) % LEN;
+        uint16_t angle = *(uint16_t *)(p + i + 1);
+        chMtxLock(mtx_servos + index);
+        servos[index].position = width_mid[index] + (angle - 90) * ANGLE2WIDTH;
+        chMtxUnlock(mtx_servos + index);
+      }
+      buff[0] = 3;
+    } else if (p[3] == 0xf0) { // read chip serial
       memcpy(buff + cursor, UUID, 12);
       buff[0] = 12 + 3;
+    } else if (p[3] == 0xf1) { // read license
+      uint8_t tx[1] = {LICENSE_ADDRESS};
+      i2cAcquireBus(i2cp);
+      i2cMasterTransmit(i2cp, ADDRESS_AT24C02, tx, 1, buff + cursor, 16);
+      i2cReleaseBus(i2cp);
+      buff[0] = 16 + 3;
+    } else if (p[3] == 0xf2) { // write license
+      uint8_t tx[9] = {0};
+      if (p[0] == 20) {
+        uint8_t sum = 0;
+        for (uint8_t i=4; i<20; i++) {
+          sum += p[i];
+        }
+        if (sum == p[20]) {
+          memcpy(tx + 1, p + 4, 8);
+          tx[0] = LICENSE_ADDRESS;
+          i2cAcquireBus(i2cp);
+          i2cMasterTransmit(i2cp, ADDRESS_AT24C02, tx, 9, NULL, 0);
+          chThdSleepMilliseconds(5);
+          i2cReleaseBus(i2cp);
+          memcpy(tx + 1, p + 4 + 8, 8);
+          tx[0] = LICENSE_ADDRESS + 8;
+          i2cAcquireBus(i2cp);
+          i2cMasterTransmit(i2cp, ADDRESS_AT24C02, tx, 9, NULL, 0);
+          chThdSleepMilliseconds(5);
+          i2cReleaseBus(i2cp);
+          flag_reset = 1;
+        } else {
+          buff[3] = 0xff; // failure
+        }
+      } else {
+        buff[3] = 0xff; // failure
+      }
+      buff[0] = 3;
+    } else if (p[3] == 0xf3) { // read licensed and version
+      buff[4] = licensed;
+      buff[5] = VERSION;
+      buff[0] = 5;
     }
-    //
-    // if (p[3] == 0xf1) { // read license
-    //   uint8_t tx[1] = {LICENSE_ADDRESS};
-    //   i2cAcquireBus(&I2CD1);
-    //   i2cMasterTransmit(&I2CD1, ADDRESS_AT24C02, tx, 1, buff + cursor, 16);
-    //   i2cReleaseBus(&I2CD1);
-    //   buff[0] = 16 + 3;
-    // }
-    //
-    // if (p[3] == 0xf2) { // write license
-    //   uint8_t tx[9] = {0};
-    //   if (p[0] == 20) {
-    //     uint8_t sum = 0;
-    //     for (uint8_t i=4; i<20; i++) {
-    //       sum += p[i];
-    //     }
-    //     if (sum == p[20]) {
-    //       memcpy(tx + 1, p + 4, 8);
-    //       tx[0] = LICENSE_ADDRESS;
-    //       i2cAcquireBus(&I2CD1);
-    //       i2cMasterTransmit(&I2CD1, ADDRESS_AT24C02, tx, 9, NULL, 0);
-    //       chThdSleepMilliseconds(5);
-    //       i2cReleaseBus(&I2CD1);
-    //       memcpy(tx + 1, p + 4 + 8, 8);
-    //       tx[0] = LICENSE_ADDRESS + 8;
-    //       i2cAcquireBus(&I2CD1);
-    //       i2cMasterTransmit(&I2CD1, ADDRESS_AT24C02, tx, 9, NULL, 0);
-    //       chThdSleepMilliseconds(5);
-    //       i2cReleaseBus(&I2CD1);
-    //       flag_reset = 1;
-    //     } else {
-    //       buff[3] = 0xff; // failure
-    //     }
-    //   } else {
-    //     buff[3] = 0xff; // failure
-    //   }
-    //   buff[0] = 3;
-    // }
-    //
-    // if (p[3] == 0xf3) { // read licensed and version
-    //   buff[4] = licensed;
-    //   buff[5] = VERSION;
-    //   buff[0] = 5;
-    // }
-    //
-    // if (p[3] == 0xf4 && p[0] == 3) { // reset
-    //   flag_reset = 1;
-    //   buff[0] = 3;
-    // }
+
+    if (p[3] == 0xf4 && p[0] == 3) { // reset
+      flag_reset = 1;
+      buff[0] = 3;
+    }
 
     chMtxLock(&mtx_bc);
-    // sdWrite(&SD1, buff, buff[0] + 1);
-    chnWrite(p->source, buff, buff[0] + 1);
+    chnWrite(instruction->source, buff, buff[0] + 1);
     chMtxUnlock(&mtx_bc);
 
     chMBPost(&mbfree, (msg_t)p, TIME_INFINITE);
@@ -517,9 +457,48 @@ void init_servo(Servo * self, uint8_t index) {
   self->step = 0;
   self->start = self->position;
   self->end = self->position;
-  self->curve = NULL;
-  // self->curve = easeLinear;
+  // self->curve = NULL;
+  self->curve = easeLinear;
 }
+
+void check_license(I2CDriver * i2cp) {
+  struct tc_aes_key_sched_struct s;
+  tc_aes128_set_encrypt_key(&s, aes_key);
+
+  uint8_t * license, * decrypted, * sid;
+  license = (uint8_t *)malloc(16);
+  decrypted = (uint8_t *)malloc(16);
+  sid = (uint8_t *)malloc(16);
+
+  uint8_t tx = LICENSE_ADDRESS;
+  i2cAcquireBus(i2cp);
+  i2cMasterTransmit(i2cp, ADDRESS_AT24C02, &tx, 1, license, 16);
+  i2cReleaseBus(i2cp);
+
+  memcpy(sid, UUID, 12);
+  *(uint32_t *)(sid + 12) = POSTFIX;
+
+  tc_aes_decrypt(decrypted, license, &s);
+
+  if (!memcmp(decrypted, sid, 16)) {
+    licensed = 0x01;
+  }
+}
+
+static void gpt1cb(GPTDriver *gptp) {
+  (void)gptp;
+  chSysLockFromISR();
+  chBSemSignalI(&i2c_bsem);
+  chSysUnlockFromISR();
+  // palTogglePad(GPIOB, 5);
+}
+
+static const GPTConfig gpt1cfg = {
+  10000,    /* timer clock.*/
+  gpt1cb,        /* Timer callback.*/
+  0,
+  0
+};
 
 int main(void) {
   halInit();
@@ -544,7 +523,10 @@ int main(void) {
 
   for (uint8_t i=0; i<LEN; i++) {
     init_servo(servos+i, i);
+    chMtxObjectInit(mtx_servos + i);
   }
+
+  chBSemObjectInit(&i2c_bsem, true);
 
   chMBObjectInit(&mbfree, mbfree_buffer, MB_SIZE);
   chMBObjectInit(&mbduty, mbduty_buffer, MB_SIZE);
@@ -553,32 +535,26 @@ int main(void) {
     chMBPost(&mbfree, (msg_t)(buff_rx + i), TIME_INFINITE);
     chprintf(chp, "%u \r\n", (msg_t)(buff_rx + i));
   }
-  //
-  // msg_t p;
-  // chMBFetch(&mbfree, &p, TIME_IMMEDIATE);
-  // chprintf(chp, "%u \r\n", p);
 
   chThdCreateStatic(waBlink, sizeof(waBlink), (NORMALPRIO + 1), Blink, NULL);
   chThdCreateStatic(waServoDriver, sizeof(waServoDriver), (NORMALPRIO + 1), ServoDriver, &I2CD1);
   chThdCreateStatic(waPing, sizeof(waPing), (NORMALPRIO), Ping, (BaseChannel *)&SD1);
-  chThdCreateStatic(waPong, sizeof(waPong), (NORMALPRIO), Pong, NULL);
+  chThdCreateStatic(waPong, sizeof(waPong), (NORMALPRIO), Pong, &I2CD1);
+
+  gptStart(&GPTD1, &gpt1cfg);
+  gptStartContinuous(&GPTD1, 98);  // 1000 / 100 = 10Hz
 
   sduObjectInit(&SDU1);
   sduStart(&SDU1, &serusbcfg);
 
   usbDisconnectBus(serusbcfg.usbp);
-  chThdSleepMilliseconds(1500);
+  check_license(&I2CD1);
   usbStart(serusbcfg.usbp, &usbcfg);
   usbConnectBus(serusbcfg.usbp);
 
   chThdCreateStatic(waCdc, sizeof(waCdc), (NORMALPRIO - 1), Cdc, (BaseChannel *)&SDU1);
 
   while(true) {
-    // chprintf(chp, "%u\r\n", chVTGetSystemTimeX());
-    // chprintf(chp, "%u %u %u %u\r\n", width_init[0], width_init[1], width_init[2], width_init[3]);
-    // chprintf(chp, "%u %u %u %u\r\n", width_mid[0], width_mid[1], width_mid[2], width_mid[3]);
-    // chprintf(chp, "%u %u %u %u\r\n", width_min[0], width_min[1], width_min[2], width_min[3]);
-    // chprintf(chp, "%u %u %u %u\r\n", width_max[0], width_max[1], width_max[2], width_max[3]);
     chThdSleepMilliseconds(1000);
   }
   return 0;

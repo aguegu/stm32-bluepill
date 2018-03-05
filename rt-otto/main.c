@@ -3,6 +3,8 @@
 #include "hal.h"
 #include "ch.h"
 #include "chprintf.h"
+#include "usbcfg.h"
+
 
 #define ADDRESS_PCA9685 0x40
 #define ADDRESS_AT24C02 0x50
@@ -14,7 +16,12 @@
 
 #define UUID ((uint8_t *)0x1FFFF7E8)
 
-static uint8_t buff_rx[MB_SIZE][BUFF_SIZE];
+typedef struct {
+  uint8_t buff[BUFF_SIZE];
+  BaseChannel * source;
+} Instruction;
+
+static Instruction buff_rx[MB_SIZE];
 
 static msg_t mbfree_buffer[MB_SIZE];
 static MAILBOX_DECL(mbfree, mbfree_buffer, MB_SIZE);
@@ -22,12 +29,14 @@ static MAILBOX_DECL(mbfree, mbfree_buffer, MB_SIZE);
 static msg_t mbduty_buffer[MB_SIZE];
 static MAILBOX_DECL(mbduty, mbduty_buffer, MB_SIZE);
 
-static mutex_t mtx_sd1;
+static mutex_t mtx_bc;
 
 static uint16_t width_init[LEN];
 static uint16_t width_mid[LEN];
 static uint16_t width_min[LEN];
 static uint16_t width_max[LEN];
+
+BaseSequentialStream* chp = (BaseSequentialStream*) &SD1;
 
 typedef struct {
   double position;
@@ -128,17 +137,16 @@ static THD_FUNCTION(ServoDriver, i2cp) {
 }
 
 static THD_WORKING_AREA(waPing, 512);
-static THD_FUNCTION(Ping, arg) {
-  (void)arg;
+static THD_FUNCTION(Ping, bc0) {
   chRegSetThreadName("ping");
   uint8_t buff[BUFF_SIZE];
   uint8_t rx[4];;
   uint8_t length;
-  msg_t *p;
+  // msg_t *p;
+  Instruction * p;
   msg_t status;
   static systime_t timeout = MS2ST(20);
-
-  BaseChannel * bc = (BaseChannel *)&SD1;
+  BaseChannel *bc = (BaseChannel *)bc0;
 
   while (true) {
     chnRead(bc, buff, 1);
@@ -149,27 +157,30 @@ static THD_FUNCTION(Ping, arg) {
       chnRead(bc, buff + 1, 2);
       if (buff[1] + buff[2] == 0xff) {
         if (length == 2) {
-          chMtxLock(&mtx_sd1);
+          chMtxLock(&mtx_bc);
           // sdWrite(&SD1, buff, 3);
           chnWrite(bc, buff, 3);
-          chMtxUnlock(&mtx_sd1);
+          chMtxUnlock(&mtx_bc);
         } else {
           // uint8_t len = sdReadTimeout(&SD1, buff + 3, length - 2, timeout);
           uint8_t len = chnReadTimeout(bc, buff + 3, length - 2, timeout);
           if (len == length - 2) {
-            status = chMBFetch(&mbfree, (msg_t *)&p, TIME_IMMEDIATE);
+            // status = chMBFetch(&mbfree, (msg_t *)&p, TIME_IMMEDIATE);
+            status = chMBFetch(&mbfree, (msg_t *)(&p), TIME_IMMEDIATE);
+            // chprintf(chp, "%u \r\n", *(msg_t*)p);
             if (status == MSG_OK) {
               // if (!licensed && cnt > 0x1000 && !(cnt & 0x03)) {
               //   rx[0] = 3;
               //   rx[1] = buff[1];
               //   rx[2] = buff[2];
               //   rx[3] = 0xfe; // no license response
-              //   chMtxLock(&mtx_sd1);
+              //   chMtxLock(&mtx_bc);
               //   sdWrite(&SD1, rx, 4);
-              //   chMtxUnlock(&mtx_sd1);
+              //   chMtxUnlock(&mtx_bc);
               //   chMBPost(&mbfree, (msg_t)p, TIME_INFINITE);
               // } else {
-                memcpy(p, buff, length + 1);
+                memcpy(p->buff, buff, length + 1);
+                p->source = bc;
                 chMBPost(&mbduty, (msg_t)p, TIME_INFINITE);
               // }
               cnt++;
@@ -178,10 +189,76 @@ static THD_FUNCTION(Ping, arg) {
               rx[1] = buff[1];
               rx[2] = buff[2];
               rx[3] = 0xff; // busy response
-              chMtxLock(&mtx_sd1);
+              chMtxLock(&mtx_bc);
               // sdWrite(&SD1, rx, 4);
               chnWrite(bc, rx, 4);
-              chMtxUnlock(&mtx_sd1);
+              chMtxUnlock(&mtx_bc);
+              // chMBPost(&mbfree, (msg_t)p, TIME_INFINITE);
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+static THD_WORKING_AREA(waCdc, 512);
+static THD_FUNCTION(Cdc, bc0) {
+  chRegSetThreadName("cdc");
+  uint8_t buff[BUFF_SIZE];
+  uint8_t rx[4];;
+  uint8_t length;
+  // msg_t *p;
+  Instruction * p;
+  msg_t status;
+  static systime_t timeout = MS2ST(20);
+  BaseChannel *bc = (BaseChannel *)bc0;
+
+  while (true) {
+    chnRead(bc, buff, 1);
+    // sdRead(&SD1, buff, 1);
+    length = buff[0];
+    if (length >= 2) {
+      // sdRead(&SD1, buff + 1, 2);
+      chnRead(bc, buff + 1, 2);
+      if (buff[1] + buff[2] == 0xff) {
+        if (length == 2) {
+          chMtxLock(&mtx_bc);
+          // sdWrite(&SD1, buff, 3);
+          chnWrite(bc, buff, 3);
+          chMtxUnlock(&mtx_bc);
+        } else {
+          // uint8_t len = sdReadTimeout(&SD1, buff + 3, length - 2, timeout);
+          uint8_t len = chnReadTimeout(bc, buff + 3, length - 2, timeout);
+          if (len == length - 2) {
+            // status = chMBFetch(&mbfree, (msg_t *)&p, TIME_IMMEDIATE);
+            status = chMBFetch(&mbfree, (msg_t *)(&p), TIME_IMMEDIATE);
+            // chprintf(chp, "%u \r\n", *(msg_t*)p);
+            if (status == MSG_OK) {
+              // if (!licensed && cnt > 0x1000 && !(cnt & 0x03)) {
+              //   rx[0] = 3;
+              //   rx[1] = buff[1];
+              //   rx[2] = buff[2];
+              //   rx[3] = 0xfe; // no license response
+              //   chMtxLock(&mtx_bc);
+              //   sdWrite(&SD1, rx, 4);
+              //   chMtxUnlock(&mtx_bc);
+              //   chMBPost(&mbfree, (msg_t)p, TIME_INFINITE);
+              // } else {
+                memcpy(p->buff, buff, length + 1);
+                p->source = bc;
+                chMBPost(&mbduty, (msg_t)p, TIME_INFINITE);
+              // }
+              cnt++;
+            } else {
+              rx[0] = 3;
+              rx[1] = buff[1];
+              rx[2] = buff[2];
+              rx[3] = 0xff; // busy response
+              chMtxLock(&mtx_bc);
+              // sdWrite(&SD1, rx, 4);
+              chnWrite(bc, rx, 4);
+              chMtxUnlock(&mtx_bc);
               // chMBPost(&mbfree, (msg_t)p, TIME_INFINITE);
             }
           }
@@ -198,14 +275,15 @@ void softreset(void) {
 static THD_WORKING_AREA(waPong, 1024);
 static THD_FUNCTION(Pong, arg) {
   (void)arg;
-  uint8_t *p;
+  // uint8_t *p;
   chRegSetThreadName("pong");
+  Instruction *p;
   uint8_t buff[BUFF_SIZE];
   uint8_t flag_reset = 0;
 
   while (true) {
-    chMBFetch(&mbduty, (msg_t *)&p, TIME_INFINITE);
-    memcpy(buff, p, 3);
+    chMBFetch(&mbduty, (msg_t *)(&p), TIME_INFINITE);
+    memcpy(buff, p->buff, 3);
 
     buff[3] = 0x00; // success
     uint8_t cursor = 4;
@@ -347,7 +425,7 @@ static THD_FUNCTION(Pong, arg) {
     //   buff[0] = 3;
     // }
     //
-    if (p[3] == 0xf0) { // read chip serial
+    if (p->buff[3] == 0xf0) { // read chip serial
       memcpy(buff + cursor, UUID, 12);
       buff[0] = 12 + 3;
     }
@@ -401,9 +479,10 @@ static THD_FUNCTION(Pong, arg) {
     //   buff[0] = 3;
     // }
 
-    chMtxLock(&mtx_sd1);
-    sdWrite(&SD1, buff, buff[0] + 1);
-    chMtxUnlock(&mtx_sd1);
+    chMtxLock(&mtx_bc);
+    // sdWrite(&SD1, buff, buff[0] + 1);
+    chnWrite(p->source, buff, buff[0] + 1);
+    chMtxUnlock(&mtx_bc);
 
     chMBPost(&mbfree, (msg_t)p, TIME_INFINITE);
 
@@ -459,7 +538,7 @@ int main(void) {
 
   i2cStart(&I2CD1, &i2cfg1);
   sdStart(&SD1, NULL);
-  chMtxObjectInit(&mtx_sd1);
+  chMtxObjectInit(&mtx_bc);
 
   read_config(&I2CD1);
 
@@ -471,21 +550,28 @@ int main(void) {
   chMBObjectInit(&mbduty, mbduty_buffer, MB_SIZE);
 
   for (uint8_t i = 0; i < MB_SIZE; i++) {
-    chMBPost(&mbfree, (msg_t)(*(buff_rx + i)), TIME_INFINITE);
+    chMBPost(&mbfree, (msg_t)(buff_rx + i), TIME_INFINITE);
+    chprintf(chp, "%u \r\n", (msg_t)(buff_rx + i));
   }
+  //
+  // msg_t p;
+  // chMBFetch(&mbfree, &p, TIME_IMMEDIATE);
+  // chprintf(chp, "%u \r\n", p);
 
   chThdCreateStatic(waBlink, sizeof(waBlink), (NORMALPRIO + 1), Blink, NULL);
   chThdCreateStatic(waServoDriver, sizeof(waServoDriver), (NORMALPRIO + 1), ServoDriver, &I2CD1);
-  chThdCreateStatic(waPing, sizeof(waPing), (NORMALPRIO), Ping, NULL);
+  chThdCreateStatic(waPing, sizeof(waPing), (NORMALPRIO), Ping, (BaseChannel *)&SD1);
   chThdCreateStatic(waPong, sizeof(waPong), (NORMALPRIO), Pong, NULL);
 
-  // sduStart(&SDU1, &serusbcfg);
-  // usbDisconnectBus(serusbcfg.usbp);
-  // chThdSleepMilliseconds(1500);
-  // usbStart(serusbcfg.usbp, &usbcfg);
-  // usbConnectBus(serusbcfg.usbp);
+  sduObjectInit(&SDU1);
+  sduStart(&SDU1, &serusbcfg);
 
-  // BaseSequentialStream* chp = (BaseSequentialStream*) &SD1;
+  usbDisconnectBus(serusbcfg.usbp);
+  chThdSleepMilliseconds(1500);
+  usbStart(serusbcfg.usbp, &usbcfg);
+  usbConnectBus(serusbcfg.usbp);
+
+  chThdCreateStatic(waCdc, sizeof(waCdc), (NORMALPRIO - 1), Cdc, (BaseChannel *)&SDU1);
 
   while(true) {
     // chprintf(chp, "%u\r\n", chVTGetSystemTimeX());

@@ -117,7 +117,7 @@ CSRC = $(STARTUPSRC) \
 			 $(CHIBIOS)/os/hal/lib/streams/memstreams.c \
 			 $(CHIBIOS)/os/hal/lib/streams/chprintf.c \
 			 $(CHIBIOS)/os/various/syscalls.c \
-			 main.c
+			 usbcfg.c main.c
 			 # ../tinycrypt/lib/source/aes_encrypt.c \
 			 # ../tinycrypt/lib/source/aes_decrypt.c \
 			 # ../tinycrypt/lib/source/utils.c \

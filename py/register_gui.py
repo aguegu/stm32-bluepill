@@ -141,7 +141,7 @@ class Demo(wx.Frame):
                 error = 2
                 break
 
-            # time.sleep(2000) # for reset
+            time.sleep(0.2) # for reset
             self.write(bytes([0xf3]))
             rx = self.tty.read(6)
             if len(rx) != 6:

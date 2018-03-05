@@ -239,6 +239,33 @@ static THD_FUNCTION(Cdc, bc0) {
   }
 }
 
+void check_license(I2CDriver * i2cp) {
+  struct tc_aes_key_sched_struct s;
+  tc_aes128_set_encrypt_key(&s, aes_key);
+
+  uint8_t * license, * decrypted, * sid;
+  license = (uint8_t *)malloc(16);
+  decrypted = (uint8_t *)malloc(16);
+  sid = (uint8_t *)malloc(16);
+
+  uint8_t tx = LICENSE_ADDRESS;
+  i2cAcquireBus(i2cp);
+  i2cMasterTransmit(i2cp, ADDRESS_AT24C02, &tx, 1, license, 16);
+  i2cReleaseBus(i2cp);
+
+  memcpy(sid, UUID, 12);
+  *(uint32_t *)(sid + 12) = POSTFIX;
+
+  tc_aes_decrypt(decrypted, license, &s);
+
+  if (!memcmp(decrypted, sid, 16)) {
+    licensed = 0x01;
+  } else {
+    licensed = 0x00;
+  }
+}
+
+
 void softreset(void) {
   *(uint32_t *)(0xE000ED0CUL) = 0x05FA0000UL | (*(uint32_t *)(0xE000ED0CUL) & 0x0700) | 0x04;
 }
@@ -342,8 +369,6 @@ static THD_FUNCTION(Pong, i2cp) {
         uint16_t span = *(uint16_t *)(p + i + 3);
         int16_t phase = *(int16_t *)(p + i + 5);
 
-        // *(uint16_t *)(buff + cursor) = servos[index].amplitude;
-        // cursor += 2;
         chMtxLock(mtx_servos + index);
         servos[index].phase = phase;
         servos[index].amplitude = amplitude * ANGLE2WIDTH;
@@ -352,7 +377,6 @@ static THD_FUNCTION(Pong, i2cp) {
         servos[index].curve = oscillate;
         chMtxUnlock(mtx_servos + index);
       }
-      // buff[0] = cursor - 1;
       buff[0] = 3;
     } else if (p[3] == 0x07) {
       for (uint8_t i = 4; i < p[0]; i += 3) {
@@ -401,7 +425,8 @@ static THD_FUNCTION(Pong, i2cp) {
           i2cMasterTransmit(i2cp, ADDRESS_AT24C02, tx, 9, NULL, 0);
           chThdSleepMilliseconds(5);
           i2cReleaseBus(i2cp);
-          flag_reset = 1;
+
+          check_license(i2cp);
         } else {
           buff[3] = 0xff; // failure
         }
@@ -413,9 +438,7 @@ static THD_FUNCTION(Pong, i2cp) {
       buff[4] = licensed;
       buff[5] = VERSION;
       buff[0] = 5;
-    }
-
-    if (p[3] == 0xf4 && p[0] == 3) { // reset
+    } else if (p[3] == 0xf4 && p[0] == 3) { // reset
       flag_reset = 1;
       buff[0] = 3;
     }
@@ -459,30 +482,6 @@ void init_servo(Servo * self, uint8_t index) {
   self->end = self->position;
   // self->curve = NULL;
   self->curve = easeLinear;
-}
-
-void check_license(I2CDriver * i2cp) {
-  struct tc_aes_key_sched_struct s;
-  tc_aes128_set_encrypt_key(&s, aes_key);
-
-  uint8_t * license, * decrypted, * sid;
-  license = (uint8_t *)malloc(16);
-  decrypted = (uint8_t *)malloc(16);
-  sid = (uint8_t *)malloc(16);
-
-  uint8_t tx = LICENSE_ADDRESS;
-  i2cAcquireBus(i2cp);
-  i2cMasterTransmit(i2cp, ADDRESS_AT24C02, &tx, 1, license, 16);
-  i2cReleaseBus(i2cp);
-
-  memcpy(sid, UUID, 12);
-  *(uint32_t *)(sid + 12) = POSTFIX;
-
-  tc_aes_decrypt(decrypted, license, &s);
-
-  if (!memcmp(decrypted, sid, 16)) {
-    licensed = 0x01;
-  }
 }
 
 static void gpt1cb(GPTDriver *gptp) {
@@ -549,6 +548,7 @@ int main(void) {
 
   usbDisconnectBus(serusbcfg.usbp);
   check_license(&I2CD1);
+  chThdSleepMilliseconds(1000);
   usbStart(serusbcfg.usbp, &usbcfg);
   usbConnectBus(serusbcfg.usbp);
 

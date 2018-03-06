@@ -7,7 +7,8 @@ from light_daemon import BusDaemon, RecvProtocol
 
 if __name__ == '__main__':
     try:
-        tty = serial.Serial('/dev/cu.SLAB_USBtoUART', 115200)
+        #tty = serial.Serial('/dev/cu.SLAB_USBtoUART', 115200)
+        tty = serial.Serial('/dev/tty.usbmodem149', 115200)
         host = BusDaemon(tty, RecvProtocol)
         host.start()
         host.connect()

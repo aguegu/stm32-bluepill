@@ -532,7 +532,6 @@ int main(void) {
 
   for (uint8_t i = 0; i < MB_SIZE; i++) {
     chMBPost(&mbfree, (msg_t)(buff_rx + i), TIME_INFINITE);
-    chprintf(chp, "%u \r\n", (msg_t)(buff_rx + i));
   }
 
   chThdCreateStatic(waBlink, sizeof(waBlink), (NORMALPRIO + 1), Blink, NULL);

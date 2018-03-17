@@ -6,6 +6,8 @@ from Cryptodome.Cipher import AES
 import time
 from os import path
 from datetime import datetime
+from functools import reduce
+
 
 SECRET = bytes([0x02, 0xc8, 0x69, 0x40, 0xec, 0x17, 0xe0, 0xf8, 0xbd, 0xaa, 0xfd, 0x2b, 0xa4, 0x1c, 0xa8, 0x78])
 POSTFIX = [
@@ -13,6 +15,8 @@ POSTFIX = [
     0x9868ee46,
     0x5846d7dc
 ]
+
+LEN = 16
 
 log = path.join(path.dirname(path.abspath(__file__)), 'verified.log')
 
@@ -102,6 +106,12 @@ class Demo(wx.Frame):
                 self.lbl_status.SetLabel('Unauthorized: %s' % toHex(rx))
                 self.lbl_status.SetForegroundColour(COLOR_RED)
 
+    def resetServos(self):
+        payload = [pack('<BHHHH', i, 306, 306, 50, 600) for i in range(LEN)]
+        self.write(reduce(lambda c, x: c + x, payload, bytearray.fromhex('03')))
+        rx = self.tty.read(4)
+        print('rx:', toHex(rx))
+
     def OnAuthorize(self, e):
         error = 0
         while True:
@@ -163,12 +173,14 @@ class Demo(wx.Frame):
             self.lbl_status.SetLabel('Authorize done.')
             self.lbl_status.SetForegroundColour(COLOR_GREEN)
 
+            self.resetServos()  # reset servos to
+
         # self.lbl_status.SetLabel('Authorize')
 
     def write(self, data):
         tx = bytes([len(data) + 2, self.uid, 0xff - self.uid]) + data
         # print('tx:', toHex(tx), datetime.now())
-        # print('tx:', toHex(tx))
+        print('tx:', toHex(tx))
         self.tty.write(tx)
         self.uid += 1
         self.uid &= 0xff

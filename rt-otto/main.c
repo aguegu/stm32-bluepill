@@ -49,7 +49,6 @@ static uint16_t width_min[LEN];
 static uint16_t width_max[LEN];
 
 static binary_semaphore_t i2c_bsem;
-BaseSequentialStream* chp = (BaseSequentialStream*) &SD1;
 
 typedef struct {
   double position;

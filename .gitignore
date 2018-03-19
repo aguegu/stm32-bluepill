@@ -10,3 +10,4 @@ chibios-i2c-slave
 ugfx
 py/
 tinycrypt/
+node_modules

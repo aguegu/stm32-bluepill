@@ -134,7 +134,6 @@ void update(uint8_t index) {
 
 static THD_WORKING_AREA(waServoDriver, 512);
 static THD_FUNCTION(ServoDriver, i2cp) {
-  // (void)arg;
   chRegSetThreadName("ServoDriver");
 
   i2cAcquireBus(i2cp);
@@ -513,10 +512,13 @@ int main(void) {
 
   palSetPad(GPIOB, 5);
 
+  sduObjectInit(&SDU1);
+  sduStart(&SDU1, &serusbcfg);
+  usbDisconnectBus(serusbcfg.usbp);
+
   i2cStart(&I2CD1, &i2cfg1);
   sdStart(&SD1, NULL);
   chMtxObjectInit(&mtx_bc);
-
   read_config(&I2CD1);
 
   for (uint8_t i=0; i<LEN; i++) {
@@ -533,24 +535,20 @@ int main(void) {
     chMBPost(&mbfree, (msg_t)(buff_rx + i), TIME_INFINITE);
   }
 
-  chThdCreateStatic(waBlink, sizeof(waBlink), (NORMALPRIO + 1), Blink, NULL);
-  chThdCreateStatic(waServoDriver, sizeof(waServoDriver), (NORMALPRIO + 1), ServoDriver, &I2CD1);
-  chThdCreateStatic(waPing, sizeof(waPing), (NORMALPRIO), Ping, (BaseChannel *)&SD1);
-  chThdCreateStatic(waPong, sizeof(waPong), (NORMALPRIO), Pong, &I2CD1);
+  chThdCreateStatic(waBlink, sizeof(waBlink), (NORMALPRIO + 5), Blink, NULL);
+  chThdCreateStatic(waServoDriver, sizeof(waServoDriver), (NORMALPRIO + 4), ServoDriver, &I2CD1);
+  chThdCreateStatic(waPing, sizeof(waPing), (NORMALPRIO + 2), Ping, (BaseChannel *)&SD1);
+  chThdCreateStatic(waPong, sizeof(waPong), (NORMALPRIO + 1), Pong, &I2CD1);
 
   gptStart(&GPTD1, &gpt1cfg);
-  gptStartContinuous(&GPTD1, 98);  // 1000 / 100 = 10Hz
+  gptStartContinuous(&GPTD1, 97);  // 1000 / 100 = 10Hz
 
-  sduObjectInit(&SDU1);
-  sduStart(&SDU1, &serusbcfg);
-
-  usbDisconnectBus(serusbcfg.usbp);
+  chThdSleepMilliseconds(500);
   check_license(&I2CD1);
-  chThdSleepMilliseconds(1000);
   usbStart(serusbcfg.usbp, &usbcfg);
   usbConnectBus(serusbcfg.usbp);
 
-  chThdCreateStatic(waCdc, sizeof(waCdc), (NORMALPRIO - 1), Cdc, (BaseChannel *)&SDU1);
+  chThdCreateStatic(waCdc, sizeof(waCdc), (NORMALPRIO + 3), Cdc, (BaseChannel *)&SDU1);
 
   while(true) {
     chThdSleepMilliseconds(1000);

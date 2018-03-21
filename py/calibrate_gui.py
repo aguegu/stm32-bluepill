@@ -127,6 +127,7 @@ class Demo(wx.Frame):
 
             sld = wx.Slider(pnl, -1, size=(300, -1), style=wx.SL_HORIZONTAL | wx.SL_LABELS)
             sld.Bind(wx.EVT_SLIDER, self.OnSlide)
+            sld.Enable(False)
             sld.SetRange(MINIMUM, MAXIMUM)
             hbox_tuning.Add(sld, 0, wx.ALIGN_CENTER_VERTICAL)
             self.sld.append(sld)
@@ -154,20 +155,35 @@ class Demo(wx.Frame):
     def OnQuit(self, e):
         self.Close()
 
+    def enableControls(self, enabled):
+        self.cb_tty.Enable(not enabled)
+
+        for ctrl in self.btn_send + self.btn_init + self.btn_mid + self.btn_min + self.btn_max + self.btn_minus + self.btn_plus + self.sld:
+            ctrl.Enable(enabled)
+
+        self.btn_read.Enable(enabled)
+        self.btn_reset.Enable(enabled)
+
     def OnToggleConnect(self, e):
         isPressed = e.GetEventObject().GetValue()
-        self.cb_tty.Enable(not isPressed)
+        tty = self.cb_tty.GetValue()
 
-        for btn_send in self.btn_send + self.btn_init + self.btn_mid + self.btn_min + self.btn_max + self.btn_minus + self.btn_plus:
-            btn_send.Enable(isPressed)
+        print(tty)
+        if not tty:
+            return
 
-        self.btn_read.Enable(isPressed)
-        self.btn_reset.Enable(isPressed)
+        if self.tty:
+            self.tty.close()
+        self.enableControls(False)
 
         if isPressed:
-            self.tty = serial.Serial(self.cb_tty.GetValue(), 115200)
-        else:
-            self.tty.close()
+            print(isPressed)
+            try:
+                self.tty = serial.Serial(tty, 115200, timeout=0.2)
+            except serial.SerialException as ex:
+                print(type(ex), dir(ex), ex)
+            else:
+                self.enableControls(True)
 
     def write(self, data):
         tx = bytes([len(data) + 2, self.uid, 0xff - self.uid]) + data

@@ -512,10 +512,6 @@ int main(void) {
 
   palSetPad(GPIOB, 5);
 
-  sduObjectInit(&SDU1);
-  sduStart(&SDU1, &serusbcfg);
-  usbDisconnectBus(serusbcfg.usbp);
-
   i2cStart(&I2CD1, &i2cfg1);
   sdStart(&SD1, NULL);
   chMtxObjectInit(&mtx_bc);
@@ -542,6 +538,10 @@ int main(void) {
 
   gptStart(&GPTD1, &gpt1cfg);
   gptStartContinuous(&GPTD1, 97);  // 1000 / 100 = 10Hz
+
+  sduObjectInit(&SDU1);
+  sduStart(&SDU1, &serusbcfg);
+  usbDisconnectBus(serusbcfg.usbp);
 
   chThdSleepMilliseconds(500);
   check_license(&I2CD1);

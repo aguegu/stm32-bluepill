@@ -3,8 +3,10 @@ from serial.tools import list_ports
 import serial
 from struct import unpack, pack
 from functools import reduce
+import time
 
 LEN = 16
+LEN_SHOW = 4
 MINIMUM = 50
 MAXIMUM = 600
 
@@ -65,7 +67,7 @@ class Demo(wx.Frame):
 
         vbox.Add(hbox_tty, 0, wx.EXPAND | wx.ALL, 4)
 
-        for i in range(LEN):
+        for i in range(LEN_SHOW):
             hbox_tuning = wx.BoxSizer(wx.HORIZONTAL)
 
             hbox_tuning.Add(wx.StaticText(pnl, -1, 'Servo #%02d' % i), 0, wx.ALIGN_CENTER_VERTICAL)
@@ -148,11 +150,15 @@ class Demo(wx.Frame):
 
         pnl.SetSizer(vbox)
 
-        self.CreateStatusBar()
+        self.statusbar = self.CreateStatusBar(1)
+        # self.statusbar.SetStatusText('Sourcekit Servo Calibrator')
+
         self.Centre()
         self.Show(True)
 
     def OnQuit(self, e):
+        if self.tty:
+            self.tty.close()
         self.Close()
 
     def enableControls(self, enabled):
@@ -168,22 +174,28 @@ class Demo(wx.Frame):
         isPressed = e.GetEventObject().GetValue()
         tty = self.cb_tty.GetValue()
 
-        print(tty)
         if not tty:
+            e.GetEventObject().SetValue(False)
             return
 
         if self.tty:
+            self.statusbar.SetStatusText('%s disconnected' % tty)
             self.tty.close()
+
         self.enableControls(False)
 
         if isPressed:
-            print(isPressed)
-            try:
-                self.tty = serial.Serial(tty, 115200, timeout=0.2)
-            except serial.SerialException as ex:
-                print(type(ex), dir(ex), ex)
-            else:
-                self.enableControls(True)
+            for i in range(10):
+                try:
+                    self.tty = serial.Serial(tty, 115200, timeout=0.2)
+                except serial.SerialException as ex:
+                    self.statusbar.SetStatusText("%d try failed. %s try again in 3 seconds." % (i + 1, ex.strerror))
+                    e.GetEventObject().SetValue(False)
+                    time.sleep(3)
+                else:
+                    self.statusbar.SetStatusText('%s connected' % tty)
+                    self.enableControls(True)
+                    break
 
     def write(self, data):
         tx = bytes([len(data) + 2, self.uid, 0xff - self.uid]) + data
@@ -268,5 +280,5 @@ class Demo(wx.Frame):
 
 if __name__ == '__main__':
     app = wx.App()
-    Demo(None, title='Hunterio Servo Dongle', size=(1000, 600))
+    Demo(None, title='SourceKit Servo Dongle', size=(1000, 600))
     app.MainLoop()

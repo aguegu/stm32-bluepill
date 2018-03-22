@@ -181,10 +181,12 @@ class Demo(wx.Frame):
         if self.tty:
             self.statusbar.SetStatusText('%s disconnected' % tty)
             self.tty.close()
+            self.tty = None
 
         self.enableControls(False)
 
         if isPressed:
+            e.GetEventObject().Enable(False)
             for i in range(10):
                 try:
                     self.tty = serial.Serial(tty, 115200, timeout=0.2)
@@ -196,7 +198,9 @@ class Demo(wx.Frame):
                     self.statusbar.SetStatusText('%s connected' % tty)
                     self.enableControls(True)
                     break
+            e.GetEventObject().Enable(True)
 
+    
     def write(self, data):
         tx = bytes([len(data) + 2, self.uid, 0xff - self.uid]) + data
         # print('tx:', toHex(tx), datetime.now())

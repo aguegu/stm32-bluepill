@@ -200,7 +200,7 @@ class Demo(wx.Frame):
                     break
             e.GetEventObject().Enable(True)
 
-    
+
     def write(self, data):
         tx = bytes([len(data) + 2, self.uid, 0xff - self.uid]) + data
         # print('tx:', toHex(tx), datetime.now())
@@ -225,10 +225,11 @@ class Demo(wx.Frame):
         data = unpack('<' + 'H' * LEN * 4, rx[4:])
         print(data)
         for i in range(LEN):
-            self.sc_init[i].SetValue(data[i * 4])
-            self.sc_mid[i].SetValue(data[i * 4 + 1])
-            self.sc_min[i].SetValue(data[i * 4 + 2])
-            self.sc_max[i].SetValue(data[i * 4 + 3])
+            if i < LEN_SHOW:
+                self.sc_init[i].SetValue(data[i * 4])
+                self.sc_mid[i].SetValue(data[i * 4 + 1])
+                self.sc_min[i].SetValue(data[i * 4 + 2])
+                self.sc_max[i].SetValue(data[i * 4 + 3])
         print(data)
 
     def OnSlide(self, e):

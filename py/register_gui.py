@@ -2,7 +2,7 @@ import wx
 from serial.tools import list_ports
 import serial
 from struct import unpack, pack
-from Cryptodome.Cipher import AES
+from Crypto.Cipher import AES
 import time
 from os import path
 from datetime import datetime

@@ -13,8 +13,8 @@ RUN wget https://osdn.net/dl/chibios/ChibiOS_19.1.3.7z \
     && 7zr x ChibiOS_19.1.3.7z \
     && mv ChibiOS_19.1.3 ChibiOS \
     && rm ChibiOS_19.1.3.7z \
-    && mkdir Chibios/demos/various/workspace
+    && mkdir ChibiOS/demos/various/workspace
 
-VOLUME Chibios/demos/various/workspace
+VOLUME /root/ChibiOS/demos/various/workspace
 
 RUN apt-get remove -y bzip2 p7zip ca-certificates wget

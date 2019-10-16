@@ -1,2 +1,2 @@
 builder:
-	docker build -t gcc-arm .
+	docker build -t aguegu/chibios .

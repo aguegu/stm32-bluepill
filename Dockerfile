@@ -19,4 +19,4 @@ RUN wget https://osdn.net/dl/chibios/ChibiOS_19.1.3.7z \
 
 VOLUME /root/ChibiOS/demos/various/workspace
 
-RUN apt-get remove -y bzip2 p7zip ca-certificates wget
+RUN apt-get remove -y bzip2 p7zip ca-certificates wget && apt-get autoremove -y

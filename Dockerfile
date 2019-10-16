@@ -1,7 +1,7 @@
 FROM debian:buster-slim
 
 RUN apt-get -y update \
-    && apt-get -y --no-install-recommends install bzip2 p7zip ca-certificates wget \
+    && apt-get -y --no-install-recommends install bzip2 p7zip ca-certificates wget make \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /root

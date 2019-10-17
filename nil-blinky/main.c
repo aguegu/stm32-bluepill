@@ -24,7 +24,7 @@ THD_FUNCTION(Thread1, arg) {
 
   while (true) {
     palTogglePad(GPIOC, GPIOC_LED);
-    chThdSleepMilliseconds(100);
+    chThdSleepMilliseconds(1000);
   }
 }
 
@@ -36,7 +36,7 @@ int main(void) {
     halInit();
     chSysInit();
 
-    while(1) {
-    }
+    while(1);
+
     return 0;
 }

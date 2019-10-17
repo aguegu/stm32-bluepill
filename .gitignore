@@ -4,6 +4,6 @@ build/
 .cproject
 .settings/
 venv/
-ChibiOS*
+chibios*
 gcc-arm-none-eabi*
 chibios-i2c-slave

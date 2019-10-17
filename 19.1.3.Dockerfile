@@ -7,9 +7,9 @@ RUN apt-get -y update \
 WORKDIR /root
 
 ADD https://armkeil.blob.core.windows.net/developer/Files/downloads/gnu-rm/8-2019q3/RC1.1/gcc-arm-none-eabi-8-2019-q3-update-linux.tar.bz2 .
-RUN tar xjf gcc-arm-none-eabi-8-2019-q3-update-linux.tar.bz2 && mv gcc-arm-none-eabi-8-2019-q3-update gcc-arm-none-eabi && rm gcc-arm-none-eabi-8-2019-q3-update-linux.tar.bz2
+RUN tar xjf gcc-arm-none-eabi-8-2019-q3-update-linux.tar.bz2 && rm gcc-arm-none-eabi-8-2019-q3-update-linux.tar.bz2
 
-ENV PATH /root/gcc-arm-none-eabi/bin:$PATH
+ENV PATH /root/gcc-arm-none-eabi-8-2019-q3-update/bin:$PATH
 
 RUN wget https://osdn.net/dl/chibios/ChibiOS_19.1.3.7z \
     && 7zr x ChibiOS_19.1.3.7z \
@@ -21,4 +21,3 @@ RUN apt-get remove -y bzip2 p7zip ca-certificates wget && apt-get autoremove -y
 
 VOLUME /root/ChibiOS/demos/various/workspace
 WORKDIR /root/ChibiOS/demos/various/workspace
-

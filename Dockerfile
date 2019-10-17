@@ -11,10 +11,11 @@ RUN tar xjf gcc-arm-none-eabi-6-2017-q2-update-linux.tar.bz2 && rm gcc-arm-none-
 
 ENV PATH /root/gcc-arm-none-eabi-6-2017-q2-update/bin:$PATH
 
-COPY ChibiOS_17.6.4.tar.gz .
-RUN tar xzf ChibiOS_17.6.4.tar.gz \
-    && mv ChibiOS_17.6.4 ChibiOS \
-    && rm ChibiOS_17.6.4.tar.gz \
+# https://osdn.net/projects/chibios/scm/svn/tree/head/tags/ver17.6.4/
+COPY chibios-tags_ver17.6.4-r13112.tar.gz .
+RUN tar xzf chibios-tags_ver17.6.4-r13112.tar.gz \
+    && mv chibios-tags_ver17.6.4-r13112/ver17.6.4 ChibiOS \
+    && rm chibios-tags_ver17.6.4-r13112.tar.gz \
     && mkdir ChibiOS/demos/various/workspace
 
 VOLUME /root/ChibiOS/demos/various/workspace

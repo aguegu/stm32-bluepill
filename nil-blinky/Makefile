@@ -1,14 +1,15 @@
-UID=$(shell id -u)
-GID=$(shell id -g)
+UID = $(shell id -u)
+GID = $(shell id -g)
+CHIBIOS_VERSION = 19.1.3
 
 dist:
-	docker run -t --rm -v ${CURDIR}:/root/ChibiOS/demos/various/workspace aguegu/chibios:19.1.3 sh -c "\
-		make -f chibios.makefile \
+	docker run -t --rm -v ${CURDIR}:/root/ChibiOS/demos/various/workspace aguegu/chibios:${CHIBIOS_VERSION} sh -c "\
+		make -f chibios.Makefile \
 		&& chown $(UID):$(GID) -R build .dep \
 	"
 
 clean:
-	docker run -t --rm -v ${CURDIR}:/root/ChibiOS/demos/various/workspace aguegu/chibios:19.1.3 make -f chibios.makefile clean
+	docker run -t --rm -v ${CURDIR}:/root/ChibiOS/demos/various/workspace aguegu/chibios:${CHIBIOS_VERSION} make -f chibios.Makefile clean
 
 flash:
 	st-flash --format ihex write build/ch.hex

@@ -548,7 +548,7 @@ int main(void) {
   usbStart(serusbcfg.usbp, &usbcfg);
   usbConnectBus(serusbcfg.usbp);
 
-  chThdCreateStatic(waCdc, sizeof(waCdc), (NORMALPRIO + 3), Cdc, (BaseChannel *)&SDU1);
+  chThdCreateStatic(waCdc, sizeof(waCdc), (NORMALPRIO - 1), Cdc, (BaseChannel *)&SDU1);
 
   while(true) {
     chThdSleepMilliseconds(1000);

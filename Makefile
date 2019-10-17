@@ -1,7 +1,9 @@
-builder:
-	docker build -t aguegu/chibios:17.6.4 .
+VERSION := 17.6.4
+
+image:
+	docker build -t aguegu/chibios:${VERSION} -f ${VERSION}.Dockerfile .
 
 push:
-	docker push aguegu/chibios:17.6.4
+	docker push aguegu/chibios:${VERSION}
 
-.PHONY: builder push
+.PHONY: image push

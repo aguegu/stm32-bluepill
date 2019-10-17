@@ -542,9 +542,8 @@ int main(void) {
   sduObjectInit(&SDU1);
   sduStart(&SDU1, &serusbcfg);
   usbDisconnectBus(serusbcfg.usbp);
-
-  chThdSleepMilliseconds(500);
   check_license(&I2CD1);
+  chThdSleepMilliseconds(1000);
   usbStart(serusbcfg.usbp, &usbcfg);
   usbConnectBus(serusbcfg.usbp);
 

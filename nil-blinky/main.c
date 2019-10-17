@@ -24,14 +24,13 @@ THD_FUNCTION(Thread1, arg) {
 
   while (true) {
     palTogglePad(GPIOC, GPIOC_LED);
-    chThdSleepMilliseconds(250);
+    chThdSleepMilliseconds(100);
   }
 }
 
 THD_TABLE_BEGIN
   THD_TABLE_ENTRY(waThread1, "blinker1", Thread1, NULL)
 THD_TABLE_END
-
 
 int main(void) {
     halInit();

@@ -23,7 +23,7 @@ dependences:
 
 ### aguegu/chibios
 
-It is a slim docker image repo contains ChibiOS (now 19.1.3) and gcc-arm-none-eabi (now 8-2019-q3-update) based on Debian on AMD64 platform.
+It is a slim docker image repo contains ChibiOS release and gcc-arm-none-eabi release at about the same time based on Debian on AMD64 platform.
 
 * [19.1.3](https://github.com/aguegu/stm32-bluepill/blob/master/19.1.3.Dockerfile): chibios v19.1.3 with gcc-arm-none-eabi-8-2019-q3-update
 * [18.2.2](https://github.com/aguegu/stm32-bluepill/blob/master/18.2.2.Dockerfile): chibios v18.2.2 with gcc-arm-none-eabi-7-2018-q2-update

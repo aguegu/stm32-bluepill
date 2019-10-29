@@ -23,17 +23,21 @@ dependences:
 
 ### aguegu/chibios
 
-It is a slim docker image repo contains ChibiOS (now 19.1.3) and gcc-arm-none-eabi (now 8-2019-q3-update) based on Debian on AMD64 platform.
+It is a slim docker image repo contains ChibiOS release and gcc-arm-none-eabi release at about the same time based on Debian on AMD64 platform.
+
+* [19.1.3](https://github.com/aguegu/stm32-bluepill/blob/master/19.1.3.Dockerfile): chibios v19.1.3 with gcc-arm-none-eabi-8-2019-q3-update
+* [18.2.2](https://github.com/aguegu/stm32-bluepill/blob/master/18.2.2.Dockerfile): chibios v18.2.2 with gcc-arm-none-eabi-7-2018-q2-update
+* [17.6.4](https://github.com/aguegu/stm32-bluepill/blob/master/17.6.4.Dockerfile): chibios v17.6.4 with gcc-arm-none-eabi-6-2017-q2-update
 
 With this image, all the building/compiling work is done within the container.
 
 You may also copy the demo project from the ChibiOS demos, like `NIL-STM32F100-DISCOVERY`, then `cd` into it
 
 1. rename the origin makefile to `chibios.makefile`, like `mv makefile chibios.makefile`
-2. copy `Makefile` from one of the demo project of this repo
-3. then this folder can work like any other demos in this repo
+2. copy `Makefile` from one of the demo projects in this repo
+3. then this folder can work like any other demos in this repo, try `make dist`
 
-In this way, the host system is clean and free of the mess of cross-compiling.
+In this way, the host system is clean and free of the mess of cross-compiling. And the Makefiles in the official demos stand intact.
 
 ### Tricky:
 

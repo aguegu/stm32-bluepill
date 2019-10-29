@@ -17,19 +17,19 @@
 #include "hal.h"
 #include "ch.h"
 
-THD_WORKING_AREA(waThread1, 32);
+THD_WORKING_AREA(waThread1, 0);
 THD_FUNCTION(Thread1, arg) {
   (void)arg;
   palSetPadMode(GPIOC, GPIOC_LED, PAL_MODE_OUTPUT_OPENDRAIN); // only 50MHz in GPIOv1
 
   while (true) {
     palTogglePad(GPIOC, GPIOC_LED);
-    chThdSleepMilliseconds(1000);
+    chThdSleepMilliseconds(50);
   }
 }
 
 THD_TABLE_BEGIN
-  THD_TABLE_ENTRY(waThread1, "blinker1", Thread1, NULL)
+  THD_TABLE_ENTRY(waThread1, "blinker", Thread1, NULL)
 THD_TABLE_END
 
 int main(void) {

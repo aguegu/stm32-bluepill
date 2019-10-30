@@ -17,19 +17,21 @@
 #include "hal.h"
 #include "ch.h"
 #include "chprintf.h"
+#include "nil_test_root.h"
+#include "oslib_test_root.h"
 
-THD_WORKING_AREA(waThread1, 0);
+THD_WORKING_AREA(waThread1, 32);
 THD_FUNCTION(Thread1, arg) {
   (void)arg;
   palSetPadMode(GPIOC, GPIOC_LED, PAL_MODE_OUTPUT_OPENDRAIN); // only 50MHz in GPIOv1
 
   while (true) {
     palTogglePad(GPIOC, GPIOC_LED);
-    chThdSleepMilliseconds(50);
+    chThdSleepMilliseconds(250);
   }
 }
 
-THD_WORKING_AREA(waThread2, 128);
+THD_WORKING_AREA(waThread2, 512);
 THD_FUNCTION(Thread2, arg) {
   (void)arg;
   uint8_t buff;
@@ -42,6 +44,8 @@ THD_FUNCTION(Thread2, arg) {
     uint8_t len = sdReadTimeout(&SD1, &buff, 1, 500);
     if (len) {
       chprintf(chp, "%02x\r\n", buff);
+      test_execute((BaseSequentialStream *)&SD1, &nil_test_suite);
+      test_execute((BaseSequentialStream *)&SD1, &oslib_test_suite);
     } else {
       chnWrite(&SD1, (const uint8_t *)"Hello World, ", 13);
       chprintf(chp, "%u\r\n", chVTGetSystemTimeX());
@@ -51,6 +55,7 @@ THD_FUNCTION(Thread2, arg) {
 
 THD_TABLE_BEGIN
   THD_TABLE_ENTRY(waThread1, "blinker", Thread1, NULL)
+  THD_TABLE_ENTRY(wa_test_support, "test_support", test_support, (void *)&nil.threads[2])
   THD_TABLE_ENTRY(waThread2, "hello", Thread2, NULL)
 THD_TABLE_END
 

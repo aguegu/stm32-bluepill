@@ -49,7 +49,6 @@ THD_FUNCTION(Thread2, arg) {
   }
 }
 
-
 THD_TABLE_BEGIN
   THD_TABLE_ENTRY(waThread1, "blinker", Thread1, NULL)
   THD_TABLE_ENTRY(waThread2, "hello", Thread2, NULL)

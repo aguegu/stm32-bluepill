@@ -3,7 +3,7 @@ import 'chai/register-should';
 import SerialPort from 'serialport';
 import { serialportConf } from './fixings';
 
-describe('list', () => {
+describe.skip('list', () => {
   it('should list ports', async () => {
     const ports = await SerialPort.list();
     const { path } = serialportConf;

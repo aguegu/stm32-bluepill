@@ -6,7 +6,8 @@
   "scripts": {
     "clean": "rm -rf dist && mkdir dist",
     "lint": "eslint --ext .js src --fix",
-    "test": "npm run lint && NODE_ENV=testing mocha --recursive --require @babel/register --exit src/"
+    "test": "npm run lint && NODE_ENV=testing mocha --recursive --require @babel/register --exit src/",
+    "watch": "nodemon -w src -x 'npm run test'"
   },
   "keywords": [
     "serialport"
@@ -20,11 +21,13 @@
     "@babel/preset-env": "^7.7.1",
     "eslint": "^6.6.0",
     "eslint-config-airbnb-base": "^14.0.0",
-    "eslint-plugin-import": "^2.18.2"
+    "eslint-plugin-import": "^2.18.2",
+    "nodemon": "^1.19.4"
   },
   "dependencies": {
     "@serialport/parser-byte-length": "^8.0.4",
     "chai": "^4.2.0",
+    "chai-bytes": "^0.1.2",
     "mocha": "^6.2.2",
     "serialport": "^8.0.5"
   }

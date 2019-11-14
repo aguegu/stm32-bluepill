@@ -1,0 +1,31 @@
+{
+  "name": "stm32-bluepill-test",
+  "version": "0.1.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "clean": "rm -rf dist && mkdir dist",
+    "lint": "eslint --ext .js src --fix",
+    "test": "npm run lint && NODE_ENV=testing mocha --recursive --require @babel/register --exit src/"
+  },
+  "keywords": [
+    "serialport"
+  ],
+  "author": "Weihong Guan <weihong.guan@gmail.com>",
+  "license": "ISC",
+  "devDependencies": {
+    "@babel/cli": "^7.7.0",
+    "@babel/core": "^7.7.2",
+    "@babel/node": "^7.7.0",
+    "@babel/preset-env": "^7.7.1",
+    "eslint": "^6.6.0",
+    "eslint-config-airbnb-base": "^14.0.0",
+    "eslint-plugin-import": "^2.18.2"
+  },
+  "dependencies": {
+    "@serialport/parser-byte-length": "^8.0.4",
+    "chai": "^4.2.0",
+    "mocha": "^6.2.2",
+    "serialport": "^8.0.5"
+  }
+}

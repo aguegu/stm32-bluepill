@@ -19,5 +19,6 @@ module.exports = {
     'no-console': 'off',
     'func-names': 'off',
     'no-unused-expressions': 'off',
+    // 'no-bitwise': 'off',
   },
 };

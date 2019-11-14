@@ -1,5 +1,7 @@
 #include "ch.h"
 #include "hal.h"
+#include "rt_test_root.h"
+#include "oslib_test_root.h"
 
 static THD_WORKING_AREA(waThread1, 0);
 static THD_FUNCTION(Thread1, arg) {
@@ -16,10 +18,17 @@ static THD_FUNCTION(Thread1, arg) {
 int main(void) {
   halInit();
   chSysInit();
+
+  sdStart(&SD1, NULL);
+  palSetPadMode(GPIOA, 9, PAL_MODE_STM32_ALTERNATE_OPENDRAIN);       // USART1 TX
+  palSetPadMode(GPIOA, 10, PAL_MODE_INPUT);                          // USART1 RX
+
   chThdCreateStatic(waThread1, sizeof(waThread1), NORMALPRIO+1, Thread1, NULL);
 
   while (true) {
-    chThdSleepSeconds(1);
+    test_execute((BaseSequentialStream *)&SD1, &rt_test_suite);
+    test_execute((BaseSequentialStream *)&SD1, &oslib_test_suite);
+    chThdSleepSeconds(10);
   }
 
   return 0;

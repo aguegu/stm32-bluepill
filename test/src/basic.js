@@ -6,6 +6,7 @@ import { serialportConf } from './fixings';
 describe.skip('list', () => {
   it('should list ports', async () => {
     const ports = await SerialPort.list();
+    console.log(ports);
     const { path } = serialportConf;
     ports.map((d) => d.path).should.include(path);
   });

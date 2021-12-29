@@ -1,21 +1,21 @@
 <script setup>
-// This starter template is using Vue 3 <script setup> SFCs
-// Check out https://v3.vuejs.org/api/sfc-script-setup.html#sfc-script-setup
-import HelloWorld from './components/HelloWorld.vue';
+import { zhCN } from 'naive-ui';
+import Servos from './components/Servos.vue';
 </script>
 
 <template>
-  <img alt="Vue logo" src="./assets/logo.png">
-  <HelloWorld msg="Hello Vue 3 + Vite" />
+  <n-config-provider :locale="zhCN">
+    <n-layout>
+      <n-layout-header>
+        <n-page-header>
+          <template #title>
+            <n-h1>OTTO Servo Calibrator</n-h1>
+          </template>
+        </n-page-header>
+      </n-layout-header>
+      <n-layout-content>
+        <Servos />
+      </n-layout-content>
+    </n-layout>
+  </n-config-provider>
 </template>
-
-<style>
-#app {
-  font-family: Avenir, Helvetica, Arial, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  text-align: center;
-  color: #2c3e50;
-  margin-top: 60px;
-}
-</style>

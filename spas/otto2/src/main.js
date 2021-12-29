@@ -1,14 +1,23 @@
 import { createApp } from 'vue';
 import {
-  // create naive ui
   create,
-  // component
   NButton,
+  NLayout,
+  NLayoutHeader,
+  NLayoutContent,
+  NPageHeader,
+  NH1,
+  NCard,
+  NConfigProvider,
+  NInput,
+  NInputNumber,
+  NSpace,
+  NTag,
 } from 'naive-ui';
 import App from './App.vue';
 
 const naive = create({
-  components: [NButton],
+  components: [NButton, NLayout, NLayoutHeader, NLayoutContent, NPageHeader, NH1, NCard, NConfigProvider, NInput, NInputNumber, NSpace, NTag],
 });
 
 const app = createApp(App);

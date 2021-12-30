@@ -13,11 +13,14 @@ import {
   NInputNumber,
   NSpace,
   NTag,
+  NSlider,
+  NGrid,
+  NGi,
 } from 'naive-ui';
 import App from './App.vue';
 
 const naive = create({
-  components: [NButton, NLayout, NLayoutHeader, NLayoutContent, NPageHeader, NH1, NCard, NConfigProvider, NInput, NInputNumber, NSpace, NTag],
+  components: [NButton, NLayout, NLayoutHeader, NLayoutContent, NPageHeader, NH1, NCard, NConfigProvider, NInput, NInputNumber, NSpace, NTag, NSlider, NGrid, NGi],
 });
 
 const app = createApp(App);

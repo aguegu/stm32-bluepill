@@ -20,5 +20,6 @@ module.exports = {
     }],
     'vue/singleline-html-element-content-newline': 'off',
     'max-len': 'off',
+    'no-bitwise': 'off',
   },
 };

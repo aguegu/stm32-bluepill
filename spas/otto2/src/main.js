@@ -18,6 +18,7 @@ import {
   NGrid,
   NGi,
   NInputGroup,
+  NInputGroupLabel,
 } from 'naive-ui';
 import App from './App.vue';
 
@@ -40,6 +41,7 @@ const naive = create({
     NGrid,
     NGi,
     NInputGroup,
+    NInputGroupLabel,
   ],
 });
 

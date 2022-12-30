@@ -28,7 +28,7 @@
     "@serialport/parser-byte-length": "^8.0.4",
     "chai": "^4.2.0",
     "chai-bytes": "^0.1.2",
-    "mocha": "^6.2.2",
+    "mocha": "^10.2.0",
     "serialport": "^8.0.5"
   }
 }
